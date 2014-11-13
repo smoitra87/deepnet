@@ -1,3 +1,7 @@
+data/
+deepnet/examples/mnist*
+deepnet/examples/checkpoints
+
 *.py[cod]
 
 # C extensions
