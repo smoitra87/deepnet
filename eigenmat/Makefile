@@ -1,9 +1,9 @@
-INCLUDE := -I${HOME}/eigen
-CCFLAGS := -O3 -fPIC -arch i386 -arch x86_64
+INCLUDE := -I${HOME}/local/include/eigen3
+CCFLAGS := -O3 -fPIC
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S), Linux)
 	CCFLAGS += -shared
-	LIB_NAME := lineigenmat.so
+	LIB_NAME := libeigenmat.so
 else
 ifeq ($(UNAME_S), Darwin)
 	CCFLAGS += -dynamiclib
