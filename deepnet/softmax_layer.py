@@ -9,11 +9,34 @@ class SoftmaxLayer(Layer):
     return proto.hyperparams.activation == deepnet_pb2.Hyperparams.SOFTMAX
 
   def ApplyActivation(self):
+    # Reshape the state to perform softmax
+    dimensions = self.dimensions
+    batchsize = self.batchsize
+    numlabels = self.numlabels
+    self.state.reshape((numlabels, dimensions * batchsize))
+
     self.state.apply_softmax()
 
+    # Undo Reshape
+    self.state.reshape((numlabels * dimensions, batchsize))
+
   def Sample(self):
+    dimensions = self.dimensions
+    batchsize = self.batchsize
+    numlabels = self.numlabels
+    state = self.state
+    sample = self.sample
+
+    # Reshape for softmax sampling
+    state.reshape((numlabels, dimensions * batchsize))
+    sample.reshape((numlabels, dimensions * batchsize))
+
     self.state.perturb_prob_for_softmax_sampling(target=self.sample)
     self.sample.choose_max(axis=0)
+
+    # Undo reshapes
+    state.reshape((numlabels * dimensions, batchsize))
+    sample.reshape((numlabels * dimensions, batchsize))
 
   def ComputeDeriv(self):
     """Compute derivative w.r.t input given derivative w.r.t output."""
@@ -32,7 +55,22 @@ class SoftmaxLayer(Layer):
     self.batchsize_temp = cm.CUDAMatrix(np.zeros((dimensions, batchsize)))
 
   def GetData(self):
+    dimensions = self.dimensions
+    batchsize = self.batchsize
+    numlabels = self.numlabels
+    data = self.data
+    state = self.state
+
+    # Reshape for select_columns to work
+    data.reshape((1, dimensions * batchsize))  
+    state.reshape((numlabels, dimensions * batchsize))
+    
+    # Select columns from the expansion matrix
     self.expansion_matrix.select_columns(self.data, target=self.state)
+
+    # Undo reshapes
+    data.reshape((dimensions, batchsize))
+    state.reshape((numlabels * dimensions, batchsize))
 
   def GetLoss(self, get_deriv=False, **kwargs):
     """Compute loss and also deriv w.r.t to it if asked for.
@@ -52,10 +90,14 @@ class SoftmaxLayer(Layer):
     numlabels = self.numlabels
     state = self.state
     data = self.data
+    temp = self.batchsize_temp
+    deriv = self.deriv
 
     # Reshape to make each softmax be one column.
     state.reshape((numlabels, dimensions * batchsize))
+    deriv.reshape((numlabels, dimensions * batchsize))
     data.reshape((1, dimensions * batchsize))
+    temp.reshape((1, dimensions * batchsize))
 
     if self.loss_function == deepnet_pb2.Layer.CROSS_ENTROPY:
       temp = self.batchsize_temp
@@ -81,7 +123,9 @@ class SoftmaxLayer(Layer):
     
     # Restore shapes.
     state.reshape((numlabels * dimensions, batchsize))
+    deriv.reshape((numlabels * dimensions, batchsize))
     data.reshape((dimensions, batchsize))
+    temp.reshape((dimensions, batchsize))
     
     return perf
 

@@ -209,6 +209,7 @@ class Layer(Parameter):
         self.suff_stats.add_mult(sparsity_gradient, -self.batchsize)
     else:
       self.suff_stats.add_sums(self.state, axis=1, mult=-1.0)
+      
     if not neg and h.sparsity:
       return self.means.sum()/self.means.shape[0]
 
@@ -220,7 +221,7 @@ class Layer(Parameter):
     if self.hyperparams.dropout and not train:
       f = 1 / (1 - self.hyperparams.dropout_prob)
     if self.is_input:
-      visualize.display_hidden(self.data.asarray(), self.fig, title=self.name)
+      visualize.display_hidden(self.state.asarray(), self.fig, title=self.name)
       #visualize.display_w(self.neg_sample.asarray(), 28, 10, self.state.shape[1]/10, self.fig, title=self.name, vmax=1, vmin=0)
       #visualize.show_hist(self.params['bias'].asarray(), self.fig)
     else:

@@ -977,7 +977,7 @@ __global__ void kChooseMaxColumnwise(float* mat, float* target, unsigned int wid
     float *target_data = &target[column * height] ; 
     for (unsigned int i = threadIdx.x; i < height; i += blockDim.x) {
       val = cur_data[i];
-      target[i] = 0;
+      target_data[i] = 0;
       if (val > cur_max) {
         cur_max = val;
         cur_argmax = i;

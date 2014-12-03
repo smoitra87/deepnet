@@ -11,7 +11,7 @@ import time
 import itertools
 import matplotlib.pyplot as plt
 from deepnet import visualize
-import lightspeed
+#import lightspeed
 
 def SampleEnergySoftmax(layer, numsamples, use_lightspeed=False):
   sample = layer.sample
@@ -38,12 +38,12 @@ def LogSumExp(x):
   offset = x.max()
   return offset + np.log(np.exp(x-offset).sum())
 
-def Display(w, hid_state, input_state, w_var, x_axis):
+def Display(w, hid_state, input_state, w_var=None, x_axis=None):
   w = w.asarray().flatten()
-  #plt.figure(1)
-  #plt.clf()
-  #plt.hist(w, 100)
-  #visualize.display_hidden(hid_state.asarray(), 2, 'activations', prob=True)
+  plt.figure(1)
+  plt.clf()
+  plt.hist(w, 100)
+  visualize.display_hidden(hid_state.asarray(), 2, 'activations', prob=True)
   #plt.figure(3)
   #plt.clf()
   #plt.imshow(hid_state.asarray().T, cmap=plt.cm.gray, interpolation='nearest')
@@ -52,11 +52,11 @@ def Display(w, hid_state, input_state, w_var, x_axis):
   #plt.imshow(input_state.asarray().T, cmap=plt.cm.gray, interpolation='nearest')
   #, state.shape[0], state.shape[1], state.shape[0], 3, title='Markov chains')
   #plt.tight_layout(pad=0, w_pad=0, h_pad=0)
-  plt.figure(5)
-  plt.clf()
-  plt.suptitle('Variance')
-  plt.plot(np.array(x_axis), np.array(w_var))
-  plt.draw()
+  #plt.figure(5)
+  #plt.clf()
+  #plt.suptitle('Variance')
+  #plt.plot(np.array(x_axis), np.array(w_var))
+  #plt.draw()
 
 def AISReplicatedSoftmax(model, D, num_chains, display=False):
   schedule = np.concatenate((
@@ -128,47 +128,6 @@ def AISReplicatedSoftmax(model, D, num_chains, display=False):
   z = LogMeanExp(w_ais.asarray()) + D * LogSumExp(f * b.asarray()) + numhid * np.log(2)
   return z
 
-def AISBinaryRbm(model, schedule):
-  cm.CUDAMatrix.init_random(seed=int(time.time()))
-  assert len(model.layer) == 2, 'Only implemented for RBMs.'
-  steps = len(schedule)
-  input_layer = model.layer[0]
-  hidden_layer = model.layer[1]
-  edge = model.edge[0]
-  batchsize = model.t_op.batchsize
-  w = edge.params['weight']
-  a = hidden_layer.params['bias']
-  b = input_layer.params['bias']
-  numvis, numhid = w.shape
-
-  # INITIALIZE TO UNIFORM RANDOM.
-  input_layer.state.assign(0)
-  input_layer.ApplyActivation()
-  input_layer.Sample()
-  w_ais = cm.CUDAMatrix(np.zeros((1, batchsize)))
-  unitcell = cm.empty((1, 1))
-  # RUN AIS.
-  for i in range(1, steps):
-    cm.dot(w.T, input_layer.sample, target=hidden_layer.state)
-    hidden_layer.state.add_col_vec(a)
-
-    hidden_layer.state.mult(schedule[i-1], target=hidden_layer.temp)
-    hidden_layer.state.mult(schedule[i])
-    cm.log_1_plus_exp(hidden_layer.state, target=hidden_layer.deriv)
-    cm.log_1_plus_exp(hidden_layer.temp)
-    hidden_layer.deriv.subtract(hidden_layer.temp)
-    w_ais.add_sums(hidden_layer.deriv, axis=0)
-    w_ais.add_dot(b.T, input_layer.state, mult=schedule[i]-schedule[i-1])
-
-    hidden_layer.ApplyActivation()
-    hidden_layer.Sample()
-    cm.dot(w, hidden_layer.sample, target=input_layer.state)
-    input_layer.state.add_col_vec(b)
-    input_layer.state.mult(schedule[i])
-    input_layer.ApplyActivation()
-    input_layer.Sample()
-  z = LogMeanExp(w_ais.asarray()) + numvis * np.log(2) + numhid * np.log(2)
-  return z
 
 def GetAll(n):
   x = np.zeros((n, 2**n))
@@ -206,20 +165,91 @@ def ExactZ_binary_binary(model):
   z = offset + np.log(w_ais.asarray().sum())
   return z
 
+check_nan = lambda x : np.any(np.isnan(x))
+
+def AISRbm(model, schedule):
+  cm.CUDAMatrix.init_random(seed=int(time.time()))
+  assert len(model.layer) == 2, 'Only implemented for RBMs.'
+  steps = len(schedule)
+  input_layer = model.layer[0]
+  hidden_layer = model.layer[1]
+  edge = model.edge[0]
+  batchsize = model.t_op.batchsize
+  for layer in (hidden_layer, input_layer):
+    layer.temp= layer.statesize
+
+  w = edge.params['weight']
+  a = hidden_layer.params['bias']
+  b = input_layer.params['bias']
+
+  # INITIALIZE TO UNIFORM RANDOM.
+  input_layer.state.assign(0)
+  input_layer.ApplyActivation()
+  input_layer.Sample()
+  w_ais = cm.CUDAMatrix(np.zeros((1, batchsize)))
+  
+  # RUN AIS.
+  for i in range(1, steps):
+    sys.stdout.write('\rStep %d ' % i) 
+    sys.stdout.flush()
+
+    cm.dot(w.T, input_layer.sample, target=hidden_layer.state)
+    hidden_layer.state.add_col_vec(a)
+
+    hidden_layer.state.mult(schedule[i-1], target=hidden_layer.temp)
+    hidden_layer.state.mult(schedule[i])
+    cm.log_1_plus_exp(hidden_layer.state, target=hidden_layer.deriv)
+    cm.log_1_plus_exp(hidden_layer.temp)
+    hidden_layer.deriv.subtract(hidden_layer.temp)
+    w_ais.add_sums(hidden_layer.deriv, axis=0)
+    w_ais.add_dot(b.T, input_layer.sample, mult=schedule[i]-schedule[i-1])
+
+    hidden_layer.ApplyActivation()
+    hidden_layer.Sample()
+    cm.dot(w, hidden_layer.sample, target=input_layer.state)
+    input_layer.state.add_col_vec(b)
+    input_layer.state.mult(schedule[i])
+    input_layer.ApplyActivation()
+    input_layer.Sample()
+
+  z = LogMeanExp(w_ais.asarray()) 
+  z += np.log(input_layer.dimensions * np.log(input_layer.numlabels))
+  z += np.log(hidden_layer.dimensions * np.log(2)) 
+  return z
+
 def Usage():
   print '%s <model file> <number of Markov chains to run> [number of words (for Replicated Softmax models)]'
 
 if __name__ == '__main__':
+
+  from argparse import ArgumentParser
+  parser = ArgumentParser(description = "Run AIS")
+  parser.add_argument("model_file", type=str)
+  parser.add_argument("--train_file", type=str)
+  parser.add_argument("--num_words", type=int)
+  parser.add_argument("numchains", type=int, default=1)
+  args = parser.parse_args()
+
   board = tr.LockGPU()
-  model_file = sys.argv[1]
-  numchains = int(sys.argv[2])
-  if len(sys.argv) > 3:
-    D = int(sys.argv[3]) #10 # number of words.
-  m = dbm.DBM(model_file)
+  model_file = args.model_file
+  train_file = args.train_file
+  numchains = args.numchains
+  m = dbm.DBM(model_file, train_file)
   m.LoadModelOnGPU(batchsize=numchains)
   plt.ion()
-  log_z = AISReplicatedSoftmax(m, D, numchains, display=True)
+
+  schedule = np.concatenate((
+    #np.arange(0.0, 1.0, 0.01),
+    np.arange(0.0, 1.0, 0.001),
+    #np.arange(0.0, 0.7, 0.001),  # 700
+    #np.arange(0.7, 0.9, 0.0001),  # 2000
+    #np.arange(0.9, 1.0, 0.00002)  # 5000
+    ))
+  log_z = AISRbm(m, schedule)
   print 'Log Z %.5f' % log_z
+
+  #log_z = AISReplicatedSoftmax(m, D, numchains, display=True)
+  #print 'Log Z %.5f' % log_z
   #log_z = AIS(m, schedule)
   #print 'Log Z %.5f' % log_z
   #log_z = ExactZ_binary_binary(m)

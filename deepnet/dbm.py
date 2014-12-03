@@ -6,7 +6,8 @@ class DBM(NeuralNet):
   def __init__(self, *args, **kwargs):
     super(DBM, self).__init__(*args, **kwargs)
     self.initializer_net = None
-    self.cd = self.t_op.optimizer == deepnet_pb2.Operation.CD
+    if self.t_op:
+       self.cd = self.t_op.optimizer == deepnet_pb2.Operation.CD
 
   @staticmethod
   def AreInputs(l):
