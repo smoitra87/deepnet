@@ -1,0 +1,15 @@
+optimizer: CD
+stopcondition {
+  all_processed: false
+  steps: 10000
+}
+train: true
+batchsize: 1000
+data_proto: "toy.pbtxt"
+eval_after: 100
+checkpoint_after: 5000
+checkpoint_directory: "/storage/data1/dbm/deepnet/deepnet/examples/toy/dbm_models"
+randomize: true
+show_after: 500
+verbose: true
+data_proto_prefix: "/storage/data1/dbm/deepnet/deepnet/examples/toy"

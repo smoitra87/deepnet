@@ -6,7 +6,7 @@ stopcondition {
 train: true
 batchsize: 100
 data_proto: "/storage/data1/dbm/deepnet/deepnet/examples/mnist/mnist.pbtxt"
-eval_after: 500
+eval_after: 200
 checkpoint_after: 10000
 checkpoint_directory: "/storage/data1/dbm/deepnet/deepnet/examples/checkpoints"
 randomize: true

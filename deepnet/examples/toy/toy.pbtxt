@@ -4,7 +4,7 @@ data {
   file_pattern: "/storage/data1/dbm/deepnet/deepnet/examples/toy/sim3.train.npy"
   size: 5000
   dimensions: 100
-  num_labels : 20
+  num_labels: 20
   sparse: true
 }
 data {
@@ -12,7 +12,7 @@ data {
   file_pattern: "/storage/data1/dbm/deepnet/deepnet/examples/toy/sim3.valid.npy"
   size: 1000
   dimensions: 100
-  num_labels : 20
+  num_labels: 20
   sparse: true
 }
 data {
@@ -20,8 +20,9 @@ data {
   file_pattern: "/storage/data1/dbm/deepnet/deepnet/examples/toy/sim3.test.npy"
   size: 1000
   dimensions: 100
-  num_labels : 20
+  num_labels: 20
   sparse: true
 }
-gpu_memory: "5G"
-main_memory: "32G"
+gpu_memory: "4G"
+main_memory: "20G"
+prefix: "/storage/data1/dbm/deepnet/deepnet/examples/toy"
