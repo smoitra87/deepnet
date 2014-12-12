@@ -213,8 +213,8 @@ def AISRbm(model, schedule):
     input_layer.Sample()
 
   z = LogMeanExp(w_ais.asarray()) 
-  z += np.log(input_layer.dimensions * np.log(input_layer.numlabels))
-  z += np.log(hidden_layer.dimensions * np.log(2)) 
+  z += input_layer.dimensions * np.log(input_layer.numlabels)
+  z += hidden_layer.dimensions * np.log(2) 
   return z
 
 def Usage():
@@ -235,15 +235,16 @@ if __name__ == '__main__':
   train_file = args.train_file
   numchains = args.numchains
   m = dbm.DBM(model_file, train_file)
-  m.LoadModelOnGPU(batchsize=numchains)
+  #m.LoadModelOnGPU(batchsize=numchains)
+  m.LoadModelOnGPU()
   plt.ion()
 
   schedule = np.concatenate((
     #np.arange(0.0, 1.0, 0.01),
-    np.arange(0.0, 1.0, 0.001),
-    #np.arange(0.0, 0.7, 0.001),  # 700
-    #np.arange(0.7, 0.9, 0.0001),  # 2000
-    #np.arange(0.9, 1.0, 0.00002)  # 5000
+    #np.arange(0.0, 1.0, 0.001),
+    np.arange(0.0, 0.7, 0.001),  # 700
+    np.arange(0.7, 0.9, 0.0001),  # 2000
+    np.arange(0.9, 1.0, 0.00002)  # 5000
     ))
   log_z = AISRbm(m, schedule)
   print 'Log Z %.5f' % log_z
