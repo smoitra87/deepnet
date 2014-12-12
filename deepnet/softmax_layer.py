@@ -104,7 +104,7 @@ class SoftmaxLayer(Layer):
       
       # Compute correct predictions.
       state.get_softmax_correct(data, target=temp)
-      perf.correct_preds = temp.sum()
+      perf.correct_preds = (temp.sum() + 0.)/ dimensions
 
       # Compute cross entropy.
       state.get_softmax_cross_entropy(data, target=temp, tiny=tiny)
