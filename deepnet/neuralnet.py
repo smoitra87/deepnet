@@ -618,7 +618,9 @@ class NeuralNet(object):
     select_model_using_error = self.net.hyperparams.select_model_using_error
     select_model_using_acc = self.net.hyperparams.select_model_using_acc
     select_model_using_map = self.net.hyperparams.select_model_using_map
-    select_best = select_model_using_error or select_model_using_acc or select_model_using_map
+    select_model_using_cross_entropy = self.net.hyperparams.select_model_using_cross_entropy
+    select_best = select_model_using_error or select_model_using_acc or select_model_using_map \
+            or select_model_using_cross_entropy
     if select_best:
       best_valid_error = float('Inf')
       test_error = float('Inf')
@@ -658,6 +660,9 @@ class NeuralNet(object):
           if select_model_using_error:
             valid_error = valid_stat.error / valid_stat.count
             _test_error = test_stat.error / test_stat.count
+          elif select_model_using_cross_entropy:
+            valid_error = valid_stat.cross_entropy / valid_stat.count
+            _test_error = test_stat.cross_entropy / test_stat.count
           elif select_model_using_acc:
             valid_error = 1 - float(valid_stat.correct_preds) / valid_stat.count
             _test_error = 1 - float(test_stat.correct_preds) / test_stat.count

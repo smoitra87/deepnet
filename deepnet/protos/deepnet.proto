@@ -176,6 +176,8 @@ message Hyperparams {
   optional float shared_prior_cost = 62 [default=0.0];
   optional bool soft_shared_prior = 63 [default=false];
   optional string label_freq_file = 64;
+
+  optional bool select_model_using_cross_entropy = 65 [default=false];
 }
 
 message Edge {
