@@ -1,0 +1,1 @@
+run test_protein.py --train  ../examples/toy/sim3.train.npy  --valid ../examples/toy/sim3.valid.npy --test  ../examples/toy/sim3.test.npy --outf sim3.hmm.pkl --nstates_hid 20
