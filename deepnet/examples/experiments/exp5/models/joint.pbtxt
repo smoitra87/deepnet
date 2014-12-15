@@ -1,0 +1,103 @@
+name: "dbn"
+model_type: DBN
+layer {
+  name: "input_layer"
+  dimensions: 50
+  numlabels: 21
+  param {
+    name: "bias_generative"
+    initialization: PRETRAINED
+    pretrained_model: "rbm1_BEST"
+    pretrained_model_param_name: "bias"
+  }
+  is_input: true
+  loss_function: CROSS_ENTROPY
+  hyperparams {
+    dropout: false
+    activation: SOFTMAX
+  }
+  data_field {
+    train: "train_data"
+    validation: "validation_data"
+    test: "test_data"
+  }
+  performance_stats {
+    compute_correct_preds: true
+    compute_cross_entropy: true
+    compute_error: true
+  }
+}
+layer {
+  name: "hidden1"
+  dimensions: 500
+  param {
+    name: "bias"
+    initialization: PRETRAINED
+    pretrained_model: "rbm1_BEST"
+  }
+  param {
+    name: "bias_generative"
+    initialization: PRETRAINED
+    pretrained_model: "rbm2_BEST"
+    pretrained_model_param_name: "bias"
+  }
+  hyperparams {
+    activation: LOGISTIC
+  }
+  performance_stats {
+    compute_cross_entropy: true
+    compute_error: true
+    compute_sparsity: true
+  }
+}
+layer {
+  name: "hidden2"
+  dimensions: 500
+  param {
+    name: "bias"
+    initialization: PRETRAINED
+    pretrained_model: "rbm2_BEST"
+  }
+  hyperparams {
+    activation: LOGISTIC
+  }
+  performance_stats {
+    compute_sparsity: true
+  }
+}
+edge {
+  node1: "hidden1"
+  node2: "input_layer"
+  param {
+    name: "weight"
+    initialization: PRETRAINED
+    pretrained_model: "rbm1_BEST"
+    transpose_pretrained: true
+  }
+}
+edge {
+  node1: "hidden1"
+  node2: "hidden2"
+  directed: false
+  param {
+    name: "weight"
+    initialization: PRETRAINED
+    pretrained_model: "rbm2_BEST"
+  }
+}
+hyperparams {
+  base_epsilon: 0.1
+  epsilon_decay: INVERSE_T
+  epsilon_decay_half_life: 20000
+  initial_momentum: 0.5
+  final_momentum: 0.1
+  momentum_change_steps: 5000
+  apply_l2_decay: true
+  l2_decay: 0.001
+  activation: LOGISTIC
+  mf_steps: 2
+  gibbs_steps: 2
+  enable_display: false
+  select_model_using_cross_entropy: true
+}
+prefix: "/storage/data1/dbm/deepnet/deepnet/examples/results/exp5/dbm_models"
