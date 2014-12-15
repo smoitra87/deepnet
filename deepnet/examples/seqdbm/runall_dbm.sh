@@ -11,6 +11,8 @@ deepnet=/storage/data1/dbm/deepnet/deepnet
 # space ~30G. EDIT this for your setup.
 prefix=/storage/data1/dbm/deepnet/deepnet/examples/toy
 
+results_dir=/storage/data1/dbm/deepnet/deepnet/examples/results/exp1
+
 # Amount of gpu memory to be used for buffering data. Adjust this for your GPU.
 # For a GPU with 6GB memory, this should be around 4GB.
 # If you get 'out of memory' errors, try decreasing this.
@@ -23,8 +25,8 @@ main_mem=20G
 
 trainer=${deepnet}/trainer.py
 extract_rep=${deepnet}/extract_rbm_representation.py
-model_output_dir=${prefix}/dbm_models
-data_output_dir=${prefix}/dbm_reps
+model_output_dir=${results_dir}/dbm_models
+data_output_dir=${results_dir}/dbm_reps
 clobber=false
 
 mkdir -p ${model_output_dir}

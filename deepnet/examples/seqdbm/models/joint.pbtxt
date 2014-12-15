@@ -90,6 +90,6 @@ hyperparams {
   activation: LOGISTIC
   mf_steps: 3
   gibbs_steps: 3
-  enable_display: true
+  enable_display: false
 }
 prefix: "/storage/data1/dbm/deepnet/deepnet/examples/toy/dbm_models"

@@ -1,13 +1,13 @@
 optimizer: CD
 stopcondition {
   all_processed: false
-  steps: 10000
+  steps: 100000
 }
 train: true
 batchsize: 1000
 data_proto: "rbm1_LAST/data.pbtxt"
 eval_after: 1000
-checkpoint_after: 5000
+checkpoint_after: 10000
 checkpoint_directory: "/storage/data1/dbm/deepnet/deepnet/examples/toy/dbm_models"
 randomize: true
 verbose: true
