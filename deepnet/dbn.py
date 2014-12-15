@@ -196,13 +196,26 @@ class DBN(DBM):
         self.ResetBatchsize(data_list[0].shape[1])
       for i, layer in enumerate(self.upward_net.datalayer):
         layer.SetData(data_list[i])
+
+        #TODO : Fix this hack. 
+        down_layer = next(l for l in self.downward_net.layer if l.name == layer.name)
+        down_layer.SetData(data_list[i])
+
     for layer in self.upward_net.tied_datalayer:
       layer.SetData(layer.tied_to.data)
 
   def TrainOneBatch(self, step):
     self.upward_net.ForwardPropagate(train=True, step=step)
-    return self.rbm.TrainOneBatch(step)
+    self.rbm.TrainOneBatch(step)
+    perf =  self.downward_net.ForwardPropagate(train=True, step=step)
+    return perf
  
+  def EvaluateOneBatch(self):
+    self.upward_net.ForwardPropagate(train=False)
+    self.rbm.PositivePhase(train=False, evaluate=True)
+    perf =  self.downward_net.ForwardPropagate(train=False)
+    return perf
+
   def PositivePhase(self, train=False, evaluate=False, step=0):
     self.upward_net.ForwardPropagate(train=train, step=step)
     return self.rbm.PositivePhase(train=train, evaluate=evaluate, step=step)

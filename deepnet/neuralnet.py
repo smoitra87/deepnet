@@ -176,12 +176,21 @@ class NeuralNet(object):
       else:
         layer.state.add_dot(b, layer.replicated_neighbour.NN)
       layer.ApplyActivation()
-      if layer.hyperparams.sparsity:
-        layer.state.sum(axis=1, target=layer.dimsize)
+
+      compute_cross_entropy = layer.proto.performance_stats.compute_cross_entropy \
+              and layer.loss_function == deepnet_pb2.Layer.CROSS_ENTROPY
+
+      if layer.hyperparams.sparsity or compute_cross_entropy:
         perf = deepnet_pb2.Metrics()
         perf.MergeFrom(layer.proto.performance_stats)
-        perf.count = layer.batchsize
-        perf.sparsity = layer.dimsize.sum() / layer.dimsize.shape[0]
+        if layer.hyperparams.sparsity:
+            layer.state.sum(axis=1, target=layer.dimsize)
+            perf.count = layer.batchsize
+            perf.sparsity = layer.dimsize.sum() / layer.dimsize.shape[0]
+        if compute_cross_entropy:
+            perf.MergeFrom(layer.GetLoss(get_deriv=False))
+
+
 
     if layer.hyperparams.dropout:
       if train and maxsteps - step >= layer.hyperparams.stop_dropout_for_last:
