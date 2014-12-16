@@ -1,7 +1,7 @@
 name: "PF11427"
 data {
   name: "train_data"
-  file_pattern: "/storage/data1/dbm/deepnet/deepnet/examples/PF11427/PF11427_train.npy"
+  file_pattern: "/storage/data1/dbm/deepnet/deepnet/datasets/PF11427/PF11427_train.npy"
   size: 38406
   dimensions: 50
   num_labels: 21
@@ -9,7 +9,7 @@ data {
 }
 data {
   name: "validation_data"
-  file_pattern: "/storage/data1/dbm/deepnet/deepnet/examples/PF11427/PF11427_valid.npy"
+  file_pattern: "/storage/data1/dbm/deepnet/deepnet/datasets/PF11427/PF11427_valid.npy"
   size: 8229
   dimensions: 50
   num_labels: 21
@@ -17,7 +17,7 @@ data {
 }
 data {
   name: "test_data"
-  file_pattern: "/storage/data1/dbm/deepnet/deepnet/examples/PF11427/PF11427_test.npy"
+  file_pattern: "/storage/data1/dbm/deepnet/deepnet/datasets/PF11427/PF11427_test.npy"
   size: 8231
   dimensions: 50
   num_labels: 21

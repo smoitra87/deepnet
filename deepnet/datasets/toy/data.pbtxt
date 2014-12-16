@@ -1,7 +1,7 @@
 name: "toy"
 data {
   name: "train_data"
-  file_pattern: "/storage/data1/dbm/deepnet/deepnet/examples/toy/sim3.train.npy"
+  file_pattern: "/storage/data1/dbm/deepnet/deepnet/datasets/toy/sim3.train.npy"
   size: 5000
   dimensions: 100
   num_labels: 20
@@ -9,7 +9,7 @@ data {
 }
 data {
   name: "validation_data"
-  file_pattern: "/storage/data1/dbm/deepnet/deepnet/examples/toy/sim3.valid.npy"
+  file_pattern: "/storage/data1/dbm/deepnet/deepnet/datasets/toy/sim3.valid.npy"
   size: 1000
   dimensions: 100
   num_labels: 20
@@ -17,7 +17,7 @@ data {
 }
 data {
   name: "test_data"
-  file_pattern: "/storage/data1/dbm/deepnet/deepnet/examples/toy/sim3.test.npy"
+  file_pattern: "/storage/data1/dbm/deepnet/deepnet/datasets/toy/sim3.test.npy"
   size: 1000
   dimensions: 100
   num_labels: 20

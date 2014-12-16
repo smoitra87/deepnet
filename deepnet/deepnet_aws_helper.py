@@ -114,18 +114,26 @@ class DeepnetHelper(object):
             run("python setup_examples.py `pwd`/mnist `pwd`/checkpoints")
 
     def deepnet_generate_exp(self):
-        try:
-            expid = next(e for e in expalloc.name_to_exp[aws_helper.ip_to_name[env.host]])
-            self._generate_experiment(expid)
-        except StopIteration:
-            sys.stdout.stderr("No jobs to run for {}".format(aws_helper.ip_to_name[env.host]))        
+        """Create a new experiment on deepnet machines """
+        self._generate_experiment()
 
-    def _generate_experiment(self, expid):
+    def tesla_generate_exp(self):
+        """ Create a new experiment on tesla"""
+        self._generate_experiment()
+
+
+
+    def _generate_experiment(self):
+        try:
+            expid = next(e for e in expalloc.name_to_exp[self.aws_helper.ip_to_name[env.host]])
+        except StopIteration:
+            sys.stdout.stderr("No jobs to run for {}".format(self.aws_helper.ip_to_name[env.host]))        
+
         with cd("deepnet/deepnet/experiments"):
             run("python generate_experiments.py expid {}".format(expid))
 
     def deepnet_run_exp(self):
-        expid = expalloc.name_to_exp[aws_helper.ip_to_name[env.host]]
+        expid = expalloc.name_to_exp[self.aws_helper.ip_to_name[env.host]]
         exp_args = expalloc.exp_to_args[expid]
         relpath =os.path.join("deepnet/deepnet/experiments/", expid) 
         with cd(relpath):
