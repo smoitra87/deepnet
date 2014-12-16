@@ -9,7 +9,6 @@ def SetupDataPbtxt(data_pbtxt_file, data_path):
   util.WritePbtxt(data_pbtxt_file, data_pbtxt)
 
 if __name__ == '__main__':
-    deepnet_path = get_deepnet_path()
     from commands import getstatusoutput
     for data_pbtxt_file in getstatusoutput("find . -name 'data.pbtxt'")[1].split():
         SetupDataPbtxt(data_pbtxt_file, \

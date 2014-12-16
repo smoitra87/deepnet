@@ -97,7 +97,7 @@ class DeepnetHelper(object):
 
     def _setup_paths(self):
         """ Set up all the paths """
-        self._setup_example_path()
+        self._setup_examples_path()
         self._setup_datasets_path()
 
     def _setup_datasets_path(self):
