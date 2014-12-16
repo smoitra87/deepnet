@@ -6,7 +6,7 @@ import os, sys
 import boto.ec2
 
 
-DEFAULT_AMI ="ami-d13869e1" 
+DEFAULT_AMI ="ami-eff4a5df" 
 DEFAULT_INSTANCE_TYPE = "g2.2xlarge"
 DEFAULT_KEY_NAME = "Subho"
 DEFAULT_SECURITY_GROUP ="launch-wizard-4" 
@@ -24,7 +24,7 @@ class AWSHelper(object):
         self._update_name_to_ip()
 
     def aws_get_status(self):
-       """ Get all instance statuses """ 
+       """ Get all statuses """ 
        reservations  = self.conn.get_all_instances()
        for res in reservations:
            for inst in res.instances:
