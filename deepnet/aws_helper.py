@@ -21,7 +21,12 @@ class AWSHelper(object):
         self.conn = boto.ec2.connect_to_region("us-west-2")
         self.name_to_ip = {}
         self.ip_to_name = {}
+        self.name_to_publicdns = {}
+        self.publicdns_to_name = {}
         self._update_name_to_ip()
+        self._update_name_to_publicdns()
+    
+
 
     def aws_get_status(self):
        """ Get all statuses """ 
@@ -102,6 +107,11 @@ class AWSHelper(object):
         self.name_to_ip = dict([(inst.tags["Name"], inst.ip_address) \
                 for inst in self.conn.get_only_instances() if inst.ip_address])
         self.ip_to_name = dict([(v,k) for (k,v) in self.name_to_ip.items()])
+
+    def _update_name_to_publicdns(self):
+        self.name_to_publicdns = dict([(inst.tags["Name"], inst.public_dns_name) \
+                for inst in self.conn.get_only_instances() if inst.public_dns_name])
+        self.publicdns_to_name = dict([(v,k) for (k,v) in self.name_to_publicdns.items()])
 
     def aws_list_name_ips(self):
         """ List all the name to ip maps """

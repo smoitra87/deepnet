@@ -11,7 +11,7 @@ import itertools
 from collections import defaultdict
 import markup
 import webbrowser
-
+from urlparse import urljoin
 
 class DeepnetHelper(object):
 
@@ -66,8 +66,12 @@ class DeepnetHelper(object):
         """ Runs ff"""
         with cd("deepnet/deepnet/examples/ff"):
            processid = self._exec_bg_cmd("./runall.sh") 
-           self._table_insert_jobs(processid, "ff")
+           link = self._build_dnslink("deepnet/examples/checkpoints")
+           self._table_insert_jobs(processid, "ff", link)
 
+    def _build_dnslink(self, path):
+        dns = self.aws_helper.name_to_publicdns[self.aws_helper.ip_to_name[env.host]]
+        return '<a href="' + dns + ":8000/"+ path + '">Output</a>'
 
     def tesla_setup(self):
         """ Setup Tesla""" 
@@ -80,6 +84,12 @@ class DeepnetHelper(object):
         self._setup_examples_path()
         self._clean_dev_shm()
         self._warm_start_cudamat()
+        self._start_webserver()
+
+    @with_settings(warn_only=True)
+    def _start_webserver(self):
+        with cd("deepnet"):
+            self._exec_bg_cmd("python -m SimpleHTTPServer 8000")
 
     @with_settings(warn_only=True)
     def _clean_dev_shm(self):
@@ -116,7 +126,8 @@ class DeepnetHelper(object):
         with cd("deepnet"):
             return self.deepnet_exec_bg_cmd(deepnet_cli)
 
-    def _table_insert_jobs(self, processid, deepnet_cli):
+    def _table_insert_jobs(self, processid, deepnet_cli, \
+            link='<a href="{}">Dont click here</a>'.format(awsutil.constants['cat'])):
         """ Insert job into job table """
         hostname = self.aws_helper.ip_to_name[env.host]
         with JobTable() as tbl:
@@ -129,12 +140,14 @@ class DeepnetHelper(object):
                 now,
                 hostname,
                 "submitted",
-                deepnet_cli)
+                deepnet_cli,
+                link)
             tbl.insert_record(record)
 
     def all_update_jobs(self):
         """ Update jobs running on tesla"""
         self._table_update_jobs()
+
 
     def _table_update_jobs(self):
         """ Update the jobs table """
@@ -197,7 +210,7 @@ class DeepnetHelper(object):
 class JobTable:
 
     """ MySQL table containing all the jobs and the job ids """
-    columns = ["job_id", "pid", "ts", "mach", "stat", "cmd"]
+    columns = ["job_id", "pid", "ts", "mach", "stat", "cmd", "link"]
 
     def __enter__(self):
         self.con = lite.connect(awsutil.constants["JOB_TABLE"])
@@ -210,8 +223,8 @@ class JobTable:
 
     def insert_record(self, record):
         """ Insert a record into the table """
-        cmd = "insert into jobs(job_id, pid, ts, mach, stat, cmd) values" +\
-            "(?, ?, ?, ?, ?, ?)"
+        cmd = "insert into jobs(job_id, pid, ts, mach, stat, cmd, link) values" +\
+            "(?, ?, ?, ?, ?, ?, ?)"
         self.cur.execute(cmd, record)
         self.con.commit()
 
@@ -272,7 +285,7 @@ class JobTable:
     def _create_table(self):
         """ Create a job table """
         cmd = "create table if not exists jobs(job_id int, pid int, " +\
-            "ts timestamp, mach text, stat text, cmd text)"
+            "ts timestamp, mach text, stat text, cmd text, link text)"
         self.cur.execute(cmd)
 
     def _delete_table(self):
@@ -287,6 +300,7 @@ class JobTable:
         print cmd
         self.cur.execute(cmd)
         self.con.commit()
+
 
 if __name__ == '__main__':
     helper = aws_helper.AWSHelper()
