@@ -12,6 +12,7 @@ from collections import defaultdict
 import markup
 import webbrowser
 from urlparse import urljoin
+from deepnet import expalloc
 
 class DeepnetHelper(object):
 
@@ -72,7 +73,9 @@ class DeepnetHelper(object):
         """ Setup Tesla""" 
         self._setup()
 
-    
+    def deepnet_setup(self):
+        """ Setup Deepnet """
+        self._setup()
 
     def _setup(self):
         """ Setup Telsa """
@@ -109,6 +112,30 @@ class DeepnetHelper(object):
         """ cd into examples directory and setup path"""
         with cd("deepnet/deepnet/examples"):
             run("python setup_examples.py `pwd`/mnist `pwd`/checkpoints")
+
+    def deepnet_generate_exp(self):
+        try:
+            expid = next(e for e in expalloc.name_to_exp[aws_helper.ip_to_name[env.host]])
+            self._generate_experiment(expid)
+        except StopIteration:
+            sys.stdout.stderr("No jobs to run for {}".format(aws_helper.ip_to_name[env.host]))        
+
+    def _generate_experiment(self, expid):
+        with cd("deepnet/deepnet/experiments"):
+            run("python generate_experiments.py expid {}".format(expid))
+
+    def deepnet_run_exp(self):
+        expid = expalloc.name_to_exp[aws_helper.ip_to_name[env.host]]
+        exp_args = expalloc.exp_to_args[expid]
+        relpath =os.path.join("deepnet/deepnet/experiments/", expid) 
+        with cd(relpath):
+            processid = self._exec_bg_cmd("./runall.sh")
+            link = self._build_dnslink(relpath)
+            self._table_insert_jobs(processid, exp_args, link)
+
+    def deepnet_delete_all_exp(self):
+        """ Delete all experimentd"""
+        awsutil.confirm()
 
     @with_settings(shell_escape=False)
     def _exec_bg_cmd(self,

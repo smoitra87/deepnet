@@ -30,3 +30,13 @@ def confirm(prompt="Are you sure?"):
 def print_iterable(iterable):
     for e in iterable:
         print e
+
+def get_deepnet_path():
+    from commands import getstatusoutput
+    if getstatusoutput('hostname')[1] == 'langmead.pc.cs.cmu.edu':
+        path = '/storage/data1/dbm/deepnet/deepnet'
+    else:
+        path = '/home/ubuntu/deepnet/deepnet'
+    return path
+
+

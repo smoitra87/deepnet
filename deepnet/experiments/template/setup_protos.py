@@ -7,14 +7,8 @@ from google.protobuf import text_format
 import pdb
 import glob
 from deepnet import deepnet_pb2
+from deepnet import awsutil
 
-def get_deepnet_path(args):
-    from commands import getstatusoutput
-    if getstatusoutput('hostname')[1] == 'langmead.pc.cs.cmu.edu' and args.local:
-        path = '/storage/data1/dbm/deepnet/deepnet'
-    else:
-        path = '/home/ubuntu/deepnet/deepnet'
-    return path
 
 def EditPaths(data_pb, args):
   data_pb.gpu_memory = args.gpu_mem
@@ -91,9 +85,9 @@ def EditModels(args):
 def main():
   from argparse import ArgumentParser
   parser = ArgumentParser()
-  parser.add_argument("data_dir", type=str, help="Data directory location")
-  parser.add_argument("model_dir", type=str, help="Directory to write models to")
-  parser.add_argument("rep_dir", type=str, help="Directory to write representations to")
+  parser.add_argument("--data_dir", type=str, help="Data directory location")
+  parser.add_argument("--model_dir", type=str, help="Directory to write models to")
+  parser.add_argument("--rep_dir", type=str, help="Directory to write representations to")
   parser.add_argument("--gpu_mem", type=str, default="3G", help="GPU memory")
   parser.add_argument("--main_mem", type=str, default="30G", help="CPU memory")
   parser.add_argument("--base_epsilon",type=float, default=0.1, help="base epsilon rate")
@@ -115,7 +109,12 @@ def main():
   parser.add_argument("--local",action="store_true", help="Run locally on langmead.pc")
 
   args = parser.parse_args()
-  deepnet_path = get_deepnet_path(args)
+
+  if not args.data_dir or not args.model_dir or not args.rep_dir or \
+          not args.input_width : 
+      raise ValueError("Required input not provided")
+
+  deepnet_path = awsutil.get_deepnet_path()
   args.data_dir = os.path.join(deepnet_path, args.data_dir)
   args.model_dir = os.path.join(deepnet_path, args.model_dir)
   args.rep_dir = os.path.join(deepnet_path, args.rep_dir)
