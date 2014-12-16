@@ -3,6 +3,7 @@ from fabric.api import *
 from contextlib import nested
 import json
 import os
+import sys
 import awsutil
 import sqlite3 as lite
 import datetime
@@ -87,8 +88,7 @@ class DeepnetHelper(object):
 
     @with_settings(warn_only=True)
     def _start_webserver(self):
-        with cd("deepnet"):
-            self._exec_bg_cmd("python -m SimpleHTTPServer 8000")
+        self._exec_bg_cmd("python -m SimpleHTTPServer 8000")
 
     @with_settings(warn_only=True)
     def _clean_dev_shm(self):
@@ -132,11 +132,21 @@ class DeepnetHelper(object):
         with cd("deepnet/deepnet/experiments"):
             run("python generate_experiments.py expid {}".format(expid))
 
+
     def deepnet_run_exp(self):
-        expid = expalloc.name_to_exp[self.aws_helper.ip_to_name[env.host]]
+        """ Run an experiment on deepnet"""
+        self._run_exp()
+
+    def tesla_run_exp(self):
+        """ Run an experiment on tesla"""
+        self._run_exp()
+
+    def _run_exp(self):
+        expid = next(e for e in expalloc.name_to_exp[self.aws_helper.ip_to_name[env.host]])
         exp_args = expalloc.exp_to_args[expid]
         relpath =os.path.join("deepnet/deepnet/experiments/", expid) 
         with cd(relpath):
+            relpath = os.path.join(relpath.split("/")[1:])
             processid = self._exec_bg_cmd("./runall.sh")
             link = self._build_dnslink(relpath)
             self._table_insert_jobs(processid, exp_args, link)
@@ -198,6 +208,11 @@ class DeepnetHelper(object):
         for job in itertools.chain(self.jobs["submitted"], self.jobs["running"]):
             db_hostname, db_pid = job[3], job[1]
             if db_hostname != hostname:
+                continue
+            try:
+                int(db_pid)
+            except ValueError:
+                print >>sys.stderr, "jobid:{} is corrupted".format(job[0])
                 continue
             if not self._check_pid_exists(db_pid):
                 updates["finished"].append(job[0])
