@@ -41,20 +41,15 @@ class DeepnetHelper(object):
         """ Run any command on tesla instances """
         self._any_cmd(cmd)
 
-    def _update_from_github(self):
+    def _overwrite_from_github(self):
         """ Update deepnet on all hosts"""
         with cd("deepnet"):
-            run("git pull origin master")
-
-    def _clean_git_repo(self):
-        """Clean the git repo """
-        with cd("deepnet"):
-            run("git checkout -- *")
+            run("git fetch --all")
+            run("git reset --hard origin/master")
 
     def tesla_run_ff(self):
         """ Run ff on tesla """
         self._run_ff()
-
 
     def tesla_run_pause(self, duration=10):
         """ Pause and insert into table """
@@ -77,11 +72,12 @@ class DeepnetHelper(object):
         """ Setup Tesla""" 
         self._setup()
 
+    
+
     def _setup(self):
         """ Setup Telsa """
-        self._clean_git_repo()
-        self._update_from_github()
-        self._setup_examples_path()
+        self._overwrite_from_github()
+        self._setup_paths()
         self._clean_dev_shm()
         self._warm_start_cudamat()
         self._start_webserver()
@@ -98,6 +94,16 @@ class DeepnetHelper(object):
     def _warm_start_cudamat(self):
         with cd("deepnet/cudamat/examples"):
             run("python rbm_cudamat.py")
+
+    def _setup_paths(self):
+        """ Set up all the paths """
+        self._setup_example_path()
+        self._setup_datasets_path()
+
+    def _setup_datasets_path(self):
+        """ cd into datasets directoriy and setup path"""
+        with cd("deepnet/deepnet/datasets"):
+            run("python setup_data_paths.py")
 
     def _setup_examples_path(self):
         """ cd into examples directory and setup path"""
