@@ -55,10 +55,19 @@ class DeepnetHelper(object):
         """ Run ff on tesla """
         self._run_ff()
 
+
+    def tesla_run_pause(self, duration=10):
+        """ Pause and insert into table """
+        cmd = 'sleep {}'.format(duration)
+        processid = self._exec_bg_cmd(cmd)
+        self._table_insert_jobs(processid, cmd)
+
     def _run_ff(self):
         """ Runs ff"""
         with cd("deepnet/deepnet/examples/ff"):
-           self._exec_bg_cmd("./runall.sh") 
+           processid = self._exec_bg_cmd("./runall.sh") 
+           self._table_insert_jobs(processid, "ff")
+
 
     def tesla_setup(self):
         """ Setup Tesla""" 
@@ -72,6 +81,7 @@ class DeepnetHelper(object):
         self._clean_dev_shm()
         self._warm_start_cudamat()
 
+    @with_settings(warn_only=True)
     def _clean_dev_shm(self):
         sudo("rm /dev/shm/*")
 
@@ -122,9 +132,13 @@ class DeepnetHelper(object):
                 deepnet_cli)
             tbl.insert_record(record)
 
-    def deepnet_table_update_jobs(self):
+    def all_update_jobs(self):
+        """ Update jobs running on tesla"""
+        self._table_update_jobs()
+
+    def _table_update_jobs(self):
         """ Update the jobs table """
-        hostname = self.gce_helper.IPtoNameMap[env.host]
+        hostname = self.aws_helper.ip_to_name[env.host]
         updates = defaultdict(list)
 
         for job in itertools.chain(self.jobs["submitted"], self.jobs["running"]):
@@ -163,14 +177,18 @@ class DeepnetHelper(object):
 
     def table_kill_job(self, jobid):
         """ Delete a particular job id """
+
         jobid = int(jobid)
         print "Killing job : {:d}".format(jobid)
         with JobTable() as tbl:
             job_record = tbl.get_job_by_jobid(jobid)
         pid, hostname = job_record[1], job_record[3]
-        ip = self.gce_helper.nameToIPMap[hostname]
+        ip = self.aws_helper.name_to_ip[hostname]
+
         with settings(host_string=ip):
-            self.deepnet_any_cmd("kill -9 {:d}".format(pid))
+            gid = run("ps x -o  '%p %r' | column -t | tr -s ' ' |" + \
+                " grep -E '^{}' | cut -d ' ' -f2".format(pid))
+            self._any_cmd("kill -TERM -{}".format(gid))
 
     def _check_pid_exists(self, pid):
         """ Check that a pid exists """

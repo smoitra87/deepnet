@@ -10,6 +10,7 @@ awshelper = aws_helper.AWSHelper()
 deepnet_helper = deepnet_helper.DeepnetHelper(awshelper)
 
 BANNED_INSTANCES=["PancreasCOE", "tesla1"]
+BANNED_INSTANCES_STRICT=["PancreasCOE"]
 
 
 # Set up roles and environments
@@ -20,6 +21,8 @@ env.roledefs = {
     [ip for (name, ip) in awshelper.name_to_ip.items() if name not in BANNED_INSTANCES],
     "tesla":
     [ip for (name, ip) in awshelper.name_to_ip.items() if name == 'tesla1'],
+    "all":
+    [ip for (name, ip) in awshelper.name_to_ip.items() if name not in BANNED_INSTANCES_STRICT],
     "aws": [],
     "table": []
 }
@@ -45,3 +48,6 @@ for tup in (tup for tup in deepnet_methods if tup[0].startswith("tesla")):
 
 for tup in (tup for tup in deepnet_methods if tup[0].startswith("table")):
     locals()[tup[0]] = roles("table")(tup[1])
+
+for tup in (tup for tup in deepnet_methods if tup[0].startswith("all")):
+    locals()[tup[0]] = roles("all")(tup[1])
