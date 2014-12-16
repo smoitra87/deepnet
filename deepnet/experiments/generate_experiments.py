@@ -34,7 +34,8 @@ param_list.append(['--hidden1_width 100 --hidden2_width 100',\
         '--hidden1_width 1000 --hidden2_width 1000'])
 param_list.append(['--sparsity', '--dropout', ''])
 param_list.append(['--data_dir datasets/toy --input_width 100 --batchsize 1000',\
-       '--data_dir datasets/PF11427 --input_width 50 --batchsize 1000'])
+       '--data_dir datasets/PF00240 --input_width 69 --batchsize 200',
+       '--data_dir datasets/PF00595 --input_width 81 --batchsize 500'])
 
 if __name__ == '__main__':
     START_EXP_ID = 1
