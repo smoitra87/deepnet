@@ -4,7 +4,7 @@ import re
 
 DEFAULT_AMI ="ami-d13869e1" 
 DEFAULT_INSTANCE_TYPE = "g2.2xlarge"
-DEFAULT_KEY_NAMe = "Subho"
+DEFAULT_KEY_NAME = "Subho"
 DEFAULT_SECURITY_GROUP ="launch-wizard-4" 
 
 def get_status(conn):
@@ -28,7 +28,7 @@ def get_next_job_id(conn, job_prefix):
    return max(ids)+1 if ids else 1
 
 def launch_instances(conn, job_prefix, launch_count=1):
-    next_exp_id = get_next_exp_id(conn, job_prefix = job_prefix)
+    next_exp_id = get_next_job_id(conn, job_prefix = job_prefix)
 
     reservation = conn.run_instances(image_id=DEFAULT_AMI, instance_type=DEFAULT_INSTANCE_TYPE, \
             key_name= DEFAULT_KEY_NAME ,security_groups= [DEFAULT_SECURITY_GROUP], \
@@ -37,7 +37,7 @@ def launch_instances(conn, job_prefix, launch_count=1):
     for idx, instance in enumerate(reservation.instances):
         inst_name = job_prefix + str(next_exp_id + idx)
         conn.create_tags([instance.id], {"Name": inst_name})
-        print("Launching {} {: }".format(inst_name, nstance.id))
+        print("Launching {} {}".format(inst_name, instance.id))
 
 def get_all_instances_by_job_prefix(conn, job_prefix):
    reservations  = conn.get_all_instances()
