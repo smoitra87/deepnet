@@ -30,7 +30,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
    
     if args.update_expalloc:
-        os.system("fab aws_write_all_idle:prefix=deepnet,out_file=idle.txt")
         completed = complete_exps() 
  
         import expalloc
