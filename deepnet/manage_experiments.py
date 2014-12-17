@@ -22,6 +22,10 @@ def complete_exps():
     return [os.path.basename(exp) for exp in glob.glob("results/exp*")]
 
 
+def exec_get_folder(tup):
+    hostname, exp = tup
+    os.system("fab choose_get_folder:hostname={0},local_path=results/,remote_path=deepnet/deepnet/experiments/{1}".format(hostname, exp))
+
 if __name__ == '__main__':
     from argparse import ArgumentParser
     parser = ArgumentParser()
@@ -60,7 +64,9 @@ if __name__ == '__main__':
             if match : pull_requests[hostname] = list(match)[0]
                 
         print pull_requests
-        for hostname, exp in pull_requests.items():
-            os.system("fab choose_get_folder:hostname={0},local_path=results/,remote_path=deepnet/deepnet/experiments/{1}".format(hostname, exp))
+        from multiprocessing import Pool
+        pool = Pool(processes=10)
 
 
+        pool.map(exec_get_folder, pull_requests.items())
+        pool.close()
