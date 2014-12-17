@@ -99,10 +99,6 @@ if __name__ == '__main__':
         with open(os.path.join(expid, 'README'),'w') as fout:
             fout.write(args)
 
-    if parse_args.expalloc and parse_args.post_process:
-        # Arbitrary post processing rules
-        pass
-
 
     if parse_args.expalloc:
         import pprint

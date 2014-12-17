@@ -74,11 +74,11 @@ class DeepnetHelper(object):
         """ Setup Tesla""" 
         self._setup()
 
+    @parallel(pool_size=10)
     def deepnet_setup(self):
         """ Setup Deepnet """
         self._setup()
 
-    @parallel(pool_size=10)
     def _setup(self):
         """ Setup Telsa """
         self._overwrite_from_github()
@@ -114,6 +114,7 @@ class DeepnetHelper(object):
         with cd("deepnet/deepnet/examples"):
             run("python setup_examples.py `pwd`/mnist `pwd`/checkpoints")
 
+    @parallel(pool_size=10)
     def deepnet_generate_exp(self):
         """Create a new experiment on deepnet machines """
         self._generate_experiment()
