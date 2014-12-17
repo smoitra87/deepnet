@@ -47,6 +47,7 @@ class AWSHelper(object):
                 min_count= launch_count, max_count=launch_count)
 
         for idx, instance in enumerate(reservation.instances):
+            import time ; time.sleep(2)  # give aws a breather
             inst_name = job_prefix + str(next_exp_id + idx)
             self.conn.create_tags([instance.id], {"Name": inst_name})
             print("Launching {} {}".format(inst_name, instance.id))

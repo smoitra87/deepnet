@@ -24,7 +24,8 @@ env.roledefs = {
     "all":
     [ip for (name, ip) in awshelper.name_to_ip.items() if name not in BANNED_INSTANCES_STRICT],
     "aws": [],
-    "table": []
+    "table": [],
+    "choose": []
 }
 env.disable_known_hosts = True
 env.key_filename = awsutil.constants["AWS_PRIVATE_KEY"]
@@ -51,3 +52,9 @@ for tup in (tup for tup in deepnet_methods if tup[0].startswith("table")):
 
 for tup in (tup for tup in deepnet_methods if tup[0].startswith("all")):
     locals()[tup[0]] = roles("all")(tup[1])
+
+for tup in (tup for tup in deepnet_methods if tup[0].startswith("choose")):
+    locals()[tup[0]] = roles("choose")(tup[1])
+
+for tup in (tup for tup in deepnet_methods if tup[0].startswith("aws")):
+    locals()[tup[0]] = roles("aws")(tup[1])

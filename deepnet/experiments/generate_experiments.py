@@ -2,6 +2,7 @@ import os, sys
 from deepnet.util import ReadModel, ReadOperation, ReadData
 import re
 import glob
+from deepnet import awsutil
 
 def append_to_list(k, param_list):
     if type(params[k][0]) is str :
@@ -19,6 +20,20 @@ params = {
     '--epsilon_decay' : [False, True],
     '--l2_decay': ['0.01', '0.001']
 }
+
+
+def write_expalloc(exp_to_args, name_to_exp):
+    """ Write the expalloc.py file"""
+
+    with open(os.path.join(awsutil.get_deepnet_path(),'expalloc.py'),'w') as fout:
+        template = """
+exp_to_args = {0}
+
+#################################33333
+
+name_to_exp = {1}
+        """.format(str(exp_to_args),str(name_to_exp))
+        fout.write(template)
 
 # Order params such that ones towards the end are sampled more
 param_list = []
@@ -47,6 +62,7 @@ if __name__ == '__main__':
     parser = ArgumentParser(description="Control experiment creation")
     parser.add_argument("expid", type=str, nargs="*", help="experiment ids to be created")
     parser.add_argument("--expalloc", action='store_true', help="Only create the expalloc table")
+    parser.add_argument("--prioritize", action='store_true', help="Prioritize the experiments")
     parser.add_argument("--machine_start_idx", type=int, default = 1, help="Min machine idzx")
     parser.add_argument("--machine_end_idx", type=int, default = 10,  help="Max machine idx")
     parser.add_argument("--machine_prefix", type=str, default = 'deepnet',  help="Machine prefix")
@@ -73,7 +89,7 @@ if __name__ == '__main__':
             continue
 
         if os.path.exists(expid):
-            sys.stdout.err("{} already exists".format(expid))
+            sys.stderr.write("{} already exists".format(expid))
             sys.exit(1)
 
         shutil.copytree('template', expid)
@@ -83,17 +99,13 @@ if __name__ == '__main__':
         with open(os.path.join(expid, 'README'),'w') as fout:
             fout.write(args)
 
+    if parse_args.expalloc and parse_args.post_process:
+        # Arbitrary post processing rules
+        pass
+
 
     if parse_args.expalloc:
         import pprint
         name_to_exp = dict(name_to_exp)
         from deepnet import awsutil
-        with open(os.path.join(awsutil.get_deepnet_path(),'expalloc.py'),'w') as fout:
-            template = """
-exp_to_args = {0}
-
-#################################33333
-
-name_to_exp = {1}
-            """.format(str(exp_to_args),str(name_to_exp))
-            fout.write(template)
+        write_expalloc(exp_to_args, name_to_exp)

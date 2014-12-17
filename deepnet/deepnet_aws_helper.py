@@ -122,7 +122,7 @@ class DeepnetHelper(object):
         self._generate_experiment()
 
 
-
+    @with_settings(warn_only=True)
     def _generate_experiment(self):
         try:
             expid = next(e for e in expalloc.name_to_exp[self.aws_helper.ip_to_name[env.host]])
@@ -131,6 +131,19 @@ class DeepnetHelper(object):
 
         with cd("deepnet/deepnet/experiments"):
             run("python generate_experiments.py expid {}".format(expid))
+
+
+    def aws_idle_run_exp(self, prefix):
+        """ Runs jobs on idle hosts """
+        idle_hosts = self._get_all_idle(prefix=prefix)
+        for host in idle_hosts:
+            print "Host=", host
+            host_string = self.aws_helper.name_to_ip[host]
+            env.host_string = host_string
+            env.host = host_string
+            self._generate_experiment()
+            self._run_exp()
+
 
 
     def deepnet_run_exp(self):
@@ -142,18 +155,73 @@ class DeepnetHelper(object):
         self._run_exp()
 
     def _run_exp(self):
+        
         expid = next(e for e in expalloc.name_to_exp[self.aws_helper.ip_to_name[env.host]])
         exp_args = expalloc.exp_to_args[expid]
         relpath =os.path.join("deepnet/deepnet/experiments/", expid) 
         with cd(relpath):
-            relpath = os.path.join(relpath.split("/")[1:])
+            run('hostname')
+            print 'Expid', expid, exp_args
             processid = self._exec_bg_cmd("./runall.sh")
             link = self._build_dnslink(relpath)
             self._table_insert_jobs(processid, exp_args, link)
 
+    def choose_read_file(self, hostname, remote_path):
+        """ Choose host and read file """
+        env.host_string = self.aws_helper.name_to_ip[hostname]
+        from StringIO import StringIO
+        fd = StringIO()
+        get(remote_path, fd)
+        content = fd.getvalue()
+        print(content)
+
+    def choose_get_folder(self, hostname, local_path, remote_path):
+        """  Query hostname and get file to local_path from remote_path"""
+        env.host_string = self.aws_helper.name_to_ip[hostname]
+        get(remote_path=remote_path, local_path=local_path)
+  
+    def deepnet_check_running(self):
+        """ Check if deepnet machine is running a gpu job"""
+        self._check_running()
+
+    @with_settings(warn_only=True)
+    def _check_running(self):
+        """ Check if machine is running a gpu job"""
+        hostname = env.host_string
+        grepstatus =  run('nvidia-smi | grep python')
+        if grepstatus:
+            print "Hostname:{} is running".format(self.aws_helper.ip_to_name[hostname])
+        else:
+            print "Hostname:{} is idle".format(self.aws_helper.ip_to_name[hostname]) 
+        return grepstatus
+
+    def _get_all_idle(self, prefix):
+        """ Get all idle machines with prefix"""
+        idle_hosts = []
+        for hostname in self.aws_helper.name_to_ip: 
+            if not hostname.startswith(prefix): continue
+            
+            ip = self.aws_helper.name_to_ip[hostname]
+            env.host_string = ip
+            if not self._check_running() : idle_hosts.append(hostname)
+        return idle_hosts
+
+    def aws_write_all_idle(self, prefix, out_file=None):
+        """ Write all idle machines to file name """
+        idle_hosts = self._get_all_idle(prefix = prefix)
+        with open(out_file, 'w') as fout:
+            for host in idle_hosts:
+                print >>fout, host
+
     def deepnet_delete_all_exp(self):
-        """ Delete all experimentd"""
+        """ Delete all experiments"""
+        print >>sys.stdout, "Experiment folder for {}".format(self.aws_helper.ip_to_name[env.host])
+        with cd('deepnet/deepnet/experiments/'):
+            run('ls')
         awsutil.confirm()
+        with cd('deepnet/deepnet/experiments/'):
+            run("rm -rf exp*")
+
 
     @with_settings(shell_escape=False)
     def _exec_bg_cmd(self,
@@ -289,6 +357,7 @@ class JobTable:
         cmd = 'select * from jobs where stat="%s"' % status
         self.cur.execute(cmd)
         return self.cur.fetchall()
+
 
     def get_job_by_jobid(self, jobid):
         """ Get jobs according to status - submitted/running/finished """
