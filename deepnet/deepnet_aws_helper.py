@@ -78,6 +78,7 @@ class DeepnetHelper(object):
         """ Setup Deepnet """
         self._setup()
 
+    @parallel(pool_size=10)
     def _setup(self):
         """ Setup Telsa """
         self._overwrite_from_github()
