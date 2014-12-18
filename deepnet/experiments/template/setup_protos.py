@@ -42,6 +42,8 @@ def EditModels(args):
      model.hyperparams.l2_decay = args.l2_decay
      model.hyperparams.initial_momentum = args.initial_momentum
      model.hyperparams.final_momentum = args.final_momentum
+  with open(model_file, 'w') as f:
+     text_format.PrintMessage(model, f)
 
   # Specific changes to rbm1
   model_file = os.path.join('models', 'rbm1.pbtxt')

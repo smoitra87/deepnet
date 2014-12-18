@@ -1,4 +1,5 @@
 from deepnet import util
+from deepnet import deepnet_pb2
 import os, sys
 import glob
 from collections import defaultdict
@@ -10,6 +11,9 @@ import webbrowser
 
 output_directories = ['dbm_BEST']
 output_file_suffixes = ['BEST', 'LAST']
+
+# Drop any files that contain this stri ng
+drop_string_list = ['rbm2']
 
 
 def walk_dir(dirpath):
@@ -51,8 +55,9 @@ def display_html(rows, header, launch_browser=False):
     if launch_browser:
         webbrowser.open(outf, new=2)
 
-DisplayRecord = namedtuple('DisplayRecord', 'model_name, dataset, sparsity, dropout, '+ \
-        'input_width, hidden1_width, hidden2_width, epsilon, l2_decay, '+\
+DisplayRecord = namedtuple('DisplayRecord', 'Train_CE, Valid_CE, Test_CE, '+\
+        'Train_Acc, Valid_Acc, Test_Acc, model_name, dataset, best_step, sparsity, dropout, '+ \
+        'input_width, hidden1_width, hidden2_width, epsilon, epsilon_decay, l2_decay, '+\
         'initial_momentum, final_momentum, expid')
 
 
@@ -60,8 +65,20 @@ def create_display_row(expid, model, op):
     hyperparams =  model.hyperparams
 
     record = []
+
+    train_stat = model.train_stats[-1]
+    valid_stat = model.validation_stats[-1]
+    test_stat = model.test_stats[-1]
+
+    for stat in (train_stat, valid_stat, test_stat):
+        record.append("{:.5f}".format(stat.cross_entropy / stat.count))
+
+    for stat in (train_stat, valid_stat, test_stat):
+        record.append(stat.correct_preds / stat.count)
+
     record.append(model.name)
     record.append(op.data_proto_prefix.split("/")[-1])
+    record.append(op.current_step)
     record.append(hyperparams.sparsity)
     record.append(hyperparams.dropout)
     
@@ -72,9 +89,19 @@ def create_display_row(expid, model, op):
         except StopIteration:
             record.append("None")
     record.append("{:.4f}".format(hyperparams.base_epsilon))
+
+    if hyperparams.epsilon_decay == deepnet_pb2.Hyperparams.INVERSE_T:
+        record.append("INVERSE_T")
+    elif hyperparams.epsilon_decay == deepnet_pb2.Hyperparams.EXPONENTIAL:
+        record.append("EXPONENTIAL")
+    elif hyperparams.epsilon_decay == deepnet_pb2.Hyperparams.NONE:
+        record.append("NONE")
+    else:
+        raise ValueError("Unknown decay type")
+
     record.append("{:.4f}".format(hyperparams.l2_decay))
     record.append("{:.4f}".format(hyperparams.initial_momentum))
-    record.append("{:.4f}".format(hyperparams.l2_decay))
+    record.append("{:.4f}".format(hyperparams.final_momentum))
     record.append(expid)
     
     return record
@@ -103,6 +130,10 @@ if __name__ == '__main__':
     get_model = lambda f : util.ReadModel(f)
     get_op = lambda f : util.ReadOperation(f)
 
+    no_match = lambda path : all(bool(s not in path) for s in drop_string_list)
+    model_paths['BEST'] = filter(no_match, model_paths['BEST'])
+        
+
     for path in model_paths['BEST']:
         exp_paths[get_expid(path)].append(path)
     exp_paths = dict(exp_paths)
@@ -119,8 +150,6 @@ if __name__ == '__main__':
             row = create_display_row(exp, util.ReadModel(model_file), util.ReadOperation(op_file))
             rows.append(row)
 
-        rows = sort_by_fields(rows, fieldnames=['model_name'])
-        display_html(rows, DisplayRecord._fields, launch_browser=True) 
-        # ---  BREAKPOINT --- 
-        import ipdb; ipdb.set_trace() 
+        rows = sort_by_fields(rows, fieldnames=['dataset', 'hidden1_width'])
+    display_html(rows, DisplayRecord._fields, launch_browser=True) 
     
