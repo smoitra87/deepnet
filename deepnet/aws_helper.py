@@ -69,10 +69,17 @@ class AWSHelper(object):
 
         instances = self._get_all_instances_by_prefix(job_prefix)
         instances = dict([(inst, instances[inst]) for inst in instances if \
-                int(re.findall("\d+",inst)[0]) in range(start_idx, end_idx)])
+                int(re.findall("\d+",inst)[0]) in range(int(start_idx), int(end_idx))])
+        print(instances)
         self.conn.stop_instances(instance_ids = instances.values())
         for instance in instances : 
             print("Stopping {}".format(instance))
+
+    def aws_stop_instance(self, name):
+        """ Stop instances (job_prefix, start_idx, end_idx)"""
+        instance_id = self._get_instance_id(name) 
+        print "Stopping ",name, instance_id
+        self.conn.stop_instances(instance_ids = [instance_id])
 
     def aws_terminate_instances(self, job_prefix, start_idx=1, end_idx=None):
         """ Terminate instances (job_prefix, start_idx, end_idx)"""
@@ -93,6 +100,13 @@ class AWSHelper(object):
                if 'Name' in inst.tags and job_prefix in inst.tags["Name"]:
                    instances[inst.tags["Name"]] = inst.id
        return instances
+
+    def _get_instance_id(self, name):
+       reservations  = self.conn.get_all_instances()
+       for res in reservations:
+           for inst in res.instances:
+               if 'Name' in inst.tags and name == inst.tags["Name"]:
+                   return inst.id
 
     @staticmethod
     def _get_instance_number(instance_name):
