@@ -91,8 +91,9 @@ class AWSHelper(object):
 
     def aws_terminate_instances(self, job_prefix, start_idx=1, end_idx=None):
         """ Terminate instances (job_prefix, start_idx, end_idx)"""
-        end_idx = self._get_next_instance_id(job_prefix) if end_idx is None else end_idx + 1
+        end_idx = self._get_next_instance_id(job_prefix) if end_idx is None else int(end_idx) + 1
 
+        start_idx, end_idx = int(start_idx), int(end_idx)
         instances = self._get_all_instances_by_prefix( job_prefix)
         instances = dict([(inst, instances[inst]) for inst in instances if \
                 int(re.findall("\d+",inst)[0]) in range(start_idx, end_idx)])
