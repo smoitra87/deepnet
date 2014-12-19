@@ -43,6 +43,11 @@ class DeepnetHelper(object):
         """ Run any command on tesla instances """
         self._any_cmd(cmd)
 
+    @parallel(pool_size=10)
+    def deepnet_any_cmd(self, cmd):
+        """ Run any command on tesla instances """
+        self._any_cmd(cmd)
+
     def _overwrite_from_github(self):
         """ Update deepnet on all hosts"""
         with cd("deepnet"):

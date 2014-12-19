@@ -26,7 +26,15 @@ class AWSHelper(object):
         self._update_name_to_ip()
         self._update_name_to_publicdns()
     
-
+    def aws_rename_instances(self, from_prefix, to_prefix):
+       instances  = self.conn.get_only_instances()
+       for inst in instances:
+           if inst.tags['Name'].startswith(from_prefix):
+               name = inst.tags["Name"]
+               new_name = to_prefix + name[len(from_prefix):]
+               self.conn.create_tags([inst.id], {"Name": new_name})
+               print "Renaming %s -> %s" % (name, new_name)
+               import time ; time.sleep(1)
 
     def aws_get_status(self):
        """ Get all statuses """ 
