@@ -4,7 +4,7 @@ import re
 import copy
 import os, sys
 import boto.ec2
-
+from awsutil import confirm
 
 DEFAULT_AMI ="ami-17104027" 
 DEFAULT_INSTANCE_TYPE = "g2.2xlarge"
@@ -61,15 +61,17 @@ class AWSHelper(object):
             print("Launching {} {}".format(inst_name, instance.id))
 
     def _get_next_instance_id(self, job_prefix):
-       reservations  = self.conn.get_all_instances()
        names=  []
-       for res in reservations:
-           for inst in res.instances:
-               if 'Name' in inst.tags and job_prefix in inst.tags["Name"]: 
-                   names.append(inst.tags["Name"])
+       for inst in self.conn.get_only_instances():
+           if not inst.ip_address: continue 
+           if 'Name' in inst.tags and job_prefix in inst.tags["Name"]: 
+               names.append(inst.tags["Name"])
 
        ids = map(int,[re.findall('\d+',f)[0] for f in names if re.findall('\d+',f)])
-       return max(ids)+1 if ids else 1
+       nextid =  max(ids)+1 if ids else 1
+       print "Next id {}".format(nextid)
+       confirm()
+       return nextid
 
     def aws_stop_instances(self, job_prefix, start_idx=1, end_idx=None):
         """ Stop instances (job_prefix, start_idx, end_idx)"""
