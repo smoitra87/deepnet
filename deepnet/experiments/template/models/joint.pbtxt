@@ -14,6 +14,8 @@ layer {
   hyperparams {
     apply_l2_decay: false
     activation: SOFTMAX
+    sparsity: false
+    dropout: false
   }
   data_field {
     train: "train_data"
