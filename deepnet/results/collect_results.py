@@ -150,6 +150,6 @@ if __name__ == '__main__':
             row = create_display_row(exp, util.ReadModel(model_file), util.ReadOperation(op_file))
             rows.append(row)
 
-        rows = sort_by_fields(rows, fieldnames=['dataset', 'hidden1_width'])
+        rows = sort_by_fields(rows, fieldnames=['dataset', 'Valid_CE', 'hidden1_width'])
     display_html(rows, DisplayRecord._fields, launch_browser=True) 
     
