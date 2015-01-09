@@ -86,25 +86,19 @@ def AISRbm(model, schedule):
     w_ais.add_sums(hidden_layer.deriv, axis=0)
     w_ais.add_dot(b.T, input_layer.sample, mult=schedule[i]-schedule[i-1])
 
-    print 'hidden annealed ene', hidden_layer.deriv.asarray().sum()
-    print 'softmax raw ene', b.asarray().T.dot(input_layer.sample.asarray()).sum()
+    #print 'hidden annealed ene', hidden_layer.deriv.asarray().sum()
+    #print 'softmax raw ene', b.asarray().T.dot(input_layer.sample.asarray()).sum()
     print 'w_ais', LogMeanExp(w_ais.asarray())
 
     hidden_layer.ApplyActivation()
-    print 'hidden probs', hidden_layer.state.asarray().sum()
+    #print 'hidden probs', hidden_layer.state.asarray().sum()
     hidden_layer.Sample()
     cm.dot(w, hidden_layer.sample, target=input_layer.state)
     input_layer.state.add_col_vec(b)
     input_layer.state.mult(schedule[i])
     input_layer.ApplyActivation()
     input_layer.Sample()
-    print 'softmax probs', input_layer.state.asarray().sum()
-
-    if i == 10:
-        raw_input('Press key to continiue..')
-        sys.exit(0)
-    
-    print '-' * 30
+    #print 'softmax probs', input_layer.state.asarray().sum()
 
   z = LogMeanExp(w_ais.asarray()) 
   z += input_layer.dimensions * np.log(input_layer.numlabels)
@@ -121,23 +115,18 @@ def AIS_DBM(model, schedule, clamp_input):
   for layer in model.layer:
     layer.temp= layer.statesize
 
-  hidden_layer = model.layer[1]  
-  input_layer = model.layer[0]
-  input_layer.state.assign(0)
-  input_layer.ApplyActivation()
-  input_layer.Sample()
-
-  model.layer = model.layer[::-1]
   # INITIALIZE TO UNIFORM RANDOM for all layers except clamped layers
-#  for layer in model.layer:
-#    if layer.is_input and clamp_input:
-#      layer.GetData()  
-#      layer.sample.assign(layer.state)
-#      continue
-#    layer.state.assign(0)
-#    layer.ApplyActivation()
-#    layer.Sample()
+  for layer in model.layer:
+    if layer.is_input and clamp_input:
+      layer.GetData()  
+      layer.sample.assign(layer.state)
+    else:
+      layer.state.assign(0)
+      layer.ApplyActivation()
+      layer.Sample()
   w_ais = cm.CUDAMatrix(np.zeros((1, batchsize)))
+  
+  input_layer, hidden_layer = model.layer
 
   # RUN AIS.
   for step_idx in range(1, steps):
@@ -146,14 +135,10 @@ def AIS_DBM(model, schedule, clamp_input):
 
     visited_edges = {}
 
-    if step_idx == 10:
-        raw_input('Press key to continiue..')
-        sys.exit(0)
-
     ##------------------------------
     # Calculate the energies from all the nodes
     for layer in model.layer:
-
+       # Initialize state to zero     
        layer.state.assign(0)
         
        for i, edge in enumerate(layer.incoming_edge):
@@ -171,33 +156,18 @@ def AIS_DBM(model, schedule, clamp_input):
          else:
            w = edge.params['weight']
            factor = edge.proto.down_factor
-         if factor != 1:
-             layer.state.mult(factor)
-         if i == 0:
-           cm.dot(w, inputs, target=layer.state)
-         else:
-           layer.state.add_dot(w, inputs, mult=factor)
+
+         layer.state.add_dot(w, inputs, mult=factor)
 
        b = layer.params['bias']
        layer.state.add_col_vec(b)
+       layer.state.mult(layer.sample)
 
-       if layer.__class__ is deepnet.logistic_layer.LogisticLayer:
-          layer.state.mult(schedule[step_idx-1], target=layer.temp)
-          layer.state.mult(schedule[step_idx])
-          cm.log_1_plus_exp(layer.state, target=layer.deriv)
-          cm.log_1_plus_exp(layer.temp)
-          layer.deriv.subtract(layer.temp)
-          w_ais.add_sums(layer.deriv, axis=0)
-          print 'hidden annealed ene', layer.deriv.asarray().sum()
-       else:
-          layer.state.mult(layer.sample)  
-          print 'softmax raw ene', layer.state.asarray().sum()
-          w_ais.add_sums(layer.state, axis=0, mult= schedule[step_idx] - schedule[step_idx-1])
+       w_ais.add_sums(layer.state, axis=0, mult= schedule[step_idx] - schedule[step_idx-1])
 
-    print 'w_ais', LogMeanExp(w_ais.asarray())
     #-----------------------------------------
     # Update the state with temperature and sample from it
-    for layer in (hidden_layer, input_layer):
+    for layer in model.layer:
       if layer.is_input and clamp_input:
           continue
       for i, edge in enumerate(layer.incoming_edge):
@@ -220,14 +190,7 @@ def AIS_DBM(model, schedule, clamp_input):
       layer.state.add_col_vec(b)
       layer.state.mult(schedule[step_idx])
       layer.ApplyActivation()
-      if layer.__class__ is deepnet.logistic_layer.LogisticLayer:
-        print 'hidden probs', layer.state.asarray().sum()
-      else:
-        print 'softmax probs', layer.state.asarray().sum()
       layer.Sample()
-
-    print '-'*30
-
 
   z = LogMeanExp(w_ais.asarray()) 
   for layer in model.layer:
@@ -264,10 +227,10 @@ if __name__ == '__main__':
   cm.CUDAMatrix.init_random(seed=42)
   schedule = np.concatenate((
     #np.arange(0.0, 1.0, 0.01),
-    np.arange(0.0, 1.0, 0.001),
-    #np.arange(0.0, 0.7, 0.001),  # 700
-    #np.arange(0.7, 0.9, 0.0001),  # 2000
-    #np.arange(0.9, 1.0, 0.00002)  # 5000
+    #np.arange(0.0, 1.0, 0.001),
+    np.arange(0.0, 0.7, 0.001),  # 700
+    np.arange(0.7, 0.9, 0.0001),  # 2000
+    np.arange(0.9, 1.0, 0.00002)  # 5000
     ))
   if not args.rbm:
     log_z = AIS_DBM(m, schedule, clamp_input=False)
