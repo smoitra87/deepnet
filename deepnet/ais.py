@@ -45,7 +45,7 @@ def Display(w, hid_state, input_state, w_var=None, x_axis=None):
 def AIS_DBM(model, schedule, clamp_input):
     # Initialize stuff
     steps = len(schedule)
-    batchsize = model.t_op.batchsize
+    batchsize = model.batchsize
     w_ais = cm.CUDAMatrix(np.zeros((1, batchsize)))
 
     is_rbm = len(model.layer) == 2
@@ -54,10 +54,6 @@ def AIS_DBM(model, schedule, clamp_input):
     h1_layer = model.GetLayerByName('hidden1') 
     if not is_rbm:
         h2_layer = model.GetLayerByName('hidden2') 
-
-    if clamp_input:
-        datagetter = model.GetValidationBatch
-        datagetter()
 
     # set up temp data structures
     for layer in model.layer:
@@ -193,16 +189,8 @@ def AIS_DBM(model, schedule, clamp_input):
             layer.ApplyActivation()
             layer.Sample()
 
-    logz = LogMeanExp(w_ais.asarray())
+    return w_ais.asarray()
 
-    for layer in model.layer:
-        if layer.is_input and clamp_input:
-            continue
-        if layer.__class__ is deepnet.logistic_layer.LogisticLayer:
-            logz += layer.dimensions * np.log(2)
-        else:
-            logz += layer.dimensions * np.log(layer.numlabels)
-    return logz
 
 
 def Usage():
@@ -214,28 +202,32 @@ if __name__ == '__main__':
     parser = ArgumentParser(description="Run AIS")
     parser.add_argument("model_file", type=str)
     parser.add_argument("--train_file", type=str)
-    parser.add_argument("--num_words", type=int)
     parser.add_argument("--clamp", action='store_true')
     parser.add_argument("--numchains", type=int, default=1)
+    parser.add_argument("--numchains_unclamped", type=int, default=1000)
     parser.add_argument("--schedule", type=str, default='quick', help='Select Schedule')
+    parser.add_argument("--outf", type=str, help='Output File')
     args = parser.parse_args()
+
+    if not args.outf : 
+        raise ValueError('Output file not defined')
 
     board = tr.LockGPU()
     model_file = args.model_file
     train_file = args.train_file
     numchains = args.numchains
-    m = dbm.DBM(model_file, train_file)
+    model = dbm.DBM(model_file, train_file)
 
     # Fix paths
-    dirname = os.path.split(m.t_op.data_proto_prefix)[1]
-    m.t_op.data_proto_prefix = os.path.join('/storage/data1/dbm/deepnet/deepnet/datasets/',\
+    dirname = os.path.split(model.t_op.data_proto_prefix)[1]
+    model.t_op.data_proto_prefix = os.path.join('/storage/data1/dbm/deepnet/deepnet/datasets/',\
             dirname)
-    m.t_op.skip_last_piece = False
-    # ---  BREAKPOINT --- 
-    import ipdb; ipdb.set_trace() 
+    model.t_op.skip_last_piece = False
+    model.t_op.get_last_piece = True
+    model.t_op.randomize = False
 
-    m.LoadModelOnGPU()
-    m.SetUpData()
+    model.LoadModelOnGPU()
+    model.SetUpData()
 
     schedules = {
         'very-quick': np.arange(0.0, 1.0, 0.01),
@@ -247,10 +239,90 @@ if __name__ == '__main__':
             }
     schedule  = schedules[args.schedule]
 
-    cm.CUDAMatrix.init_random(seed=42)
+    datagetters = {
+            'train' : model.GetTrainBatch,
+            'valid' : model.GetValidationBatch,
+            'test' : model.GetTestBatch
+            }
 
-    log_z = AIS_DBM(m, schedule, clamp_input=args.clamp)
+    batchsizes = {
+            'train' : model.train_data_handler.num_batches,
+            'valid' : model.validation_data_handler.num_batches,
+            'test' : model.test_data_handler.num_batches
+            }
 
-    print 'Log Z %.5f' % log_z
+    cm.CUDAMatrix.init_random(seed=int(time.time()))
+
+
+    #------------------------------------------------------------------------
+    # log_z for model conditioned on datapoints
+
+    base_logz = 0.0
+    for layer in model.layer:
+        if layer.is_input:
+            continue
+        if layer.__class__ is deepnet.logistic_layer.LogisticLayer:
+            base_logz += layer.dimensions * np.log(2)
+        else:
+            base_logz += layer.dimensions * np.log(layer.numlabels)
+
+    from collections import defaultdict    
+    logz_data = defaultdict(list)
+    for data_type in ['train', 'valid', 'test']:
+        num_batches = batchsizes[data_type]
+        datagetter = datagetters[data_type]
+        for batch_idx in range(num_batches):
+            datagetter()
+            if args.numchains > 1:
+                datalist = []
+                for layer in model.input_datalayer:
+                    datalist.append(layer.data.asarray())
+                model.ResetBatchsize(model.batchsize * args.numchains)
+
+                for layer, cpudata in zip(model.input_datalayer,datalist):
+                    nFeats, nInstances = cpudata.shape
+                    cpudata = np.tile(cpudata,(1, args.numchains))
+                    layer.data = cm.CUDAMatrix(cpudata)
+
+            chains = AIS_DBM(model, schedule, True)
+            chains = chains.flatten()
+            num_replicated_chains  = len(chains)
+            batchsize = num_replicated_chains / args.numchains
+            w_ais  = np.zeros(batchsize)
+            for idx in range(batchsize):
+                w_ais[idx] = np.mean(chains[idx::batchsize])
+            logz_data[data_type].append(w_ais)
+
+        logz_data[data_type] = np.concatenate(logz_data[data_type])
+        logz_data[data_type] += base_logz
+
+   
+    #----------------------------------------------------------------------
+    # log_z for unclamped model
+    model.ResetBatchsize(args.numchains_unclamped)
+    chains = AIS_DBM(model, schedule, clamp_input=False)
+    model_logz = chains.flatten()
+        
+    base_logz = 0.0
+    for layer in model.layer:
+        if layer.__class__ is deepnet.logistic_layer.LogisticLayer:
+            base_logz += layer.dimensions * np.log(2)
+        else:
+            base_logz += layer.dimensions * np.log(layer.numlabels)
+    model_logz += base_logz
+
+    #-------------------------------------------------------------------
+    # Print and save the results 
+    print 'Unclampled Log Z %.5f, Var %.5f' % (model_logz.mean(), model_logz.std())
+    for dtype in logz_data :
+        logz = logz_data[dtype]
+        print 'clampled %s Log Z %.5f, Var %.5f' % (dtype, logz.mean(), logz.std())
 
     tr.FreeGPU(board)
+
+    import pickle
+    with open(args.outf,'wb') as fout:
+        pkldata = { 'model' : model_logz, 'data' : logz_data }
+        pickle.dump(pkldata, fout)
+
+
