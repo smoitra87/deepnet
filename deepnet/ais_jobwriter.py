@@ -13,8 +13,8 @@ expids = [expid for expid in expids if not check_sim3(expid)]
 
 
 splits = 2
-numchains = 20
-numchains_unclamped = 1000
+numchains = 1 
+numchains_unclamped = 100
 schedule = 'slow'
 
 fouts = []
