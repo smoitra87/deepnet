@@ -18,11 +18,9 @@ def LogMeanExp(x):
     offset = x.max()
     return offset + np.log(np.exp(x-offset).mean())
 
-
 def LogSumExp(x):
     offset = x.max()
     return offset + np.log(np.exp(x-offset).sum())
-
 
 def Display(w, hid_state, input_state, w_var=None, x_axis=None):
     w = w.asarray().flatten()
@@ -44,83 +42,32 @@ def Display(w, hid_state, input_state, w_var=None, x_axis=None):
     # plt.plot(np.array(x_axis), np.array(w_var))
     # plt.draw()
 
-
-def GetAll(n):
-    x = np.zeros((n, 2**n))
-    a = []
-    for i in range(n):
-        a.append([0, 1])
-    for i, r in enumerate(itertools.product(*tuple(a))):
-        x[:, i] = np.array(r)
-    return x
-
-
-def AISRbm(model, schedule):
-    assert len(model.layer) == 2, 'Only implemented for RBMs.'
-    steps = len(schedule)
-    input_layer = model.layer[0]
-    hidden_layer = model.layer[1]
-    edge = model.edge[0]
-    batchsize = model.t_op.batchsize
-    for layer in (hidden_layer, input_layer):
-        layer.temp = layer.statesize
-
-    w = edge.params['weight']
-    a = hidden_layer.params['bias']
-    b = input_layer.params['bias']
-
-    # INITIALIZE TO UNIFORM RANDOM.
-    input_layer.state.assign(0)
-    input_layer.ApplyActivation()
-    input_layer.Sample()
-    w_ais = cm.CUDAMatrix(np.zeros((1, batchsize)))
-
-    # RUN AIS.
-    for i in range(1, steps):
-        sys.stdout.write('\rStep %d ' % i)
-        sys.stdout.flush()
-
-        cm.dot(w.T, input_layer.sample, target=hidden_layer.state)
-        hidden_layer.state.add_col_vec(a)
-
-        hidden_layer.state.mult(schedule[i-1], target=hidden_layer.temp)
-        hidden_layer.state.mult(schedule[i])
-        cm.log_1_plus_exp(hidden_layer.state, target=hidden_layer.deriv)
-        cm.log_1_plus_exp(hidden_layer.temp)
-        hidden_layer.deriv.subtract(hidden_layer.temp)
-        w_ais.add_sums(hidden_layer.deriv, axis=0)
-        w_ais.add_dot(b.T, input_layer.sample, mult=schedule[i]-schedule[i-1])
-
-        # print 'hidden annealed ene', hidden_layer.deriv.asarray().sum()
-        # print 'softmax raw ene',
-        # b.asarray().T.dot(input_layer.sample.asarray()).sum()
-        print 'w_ais', LogMeanExp(w_ais.asarray())
-
-        hidden_layer.ApplyActivation()
-        # print 'hidden probs', hidden_layer.state.asarray().sum()
-        hidden_layer.Sample()
-        cm.dot(w, hidden_layer.sample, target=input_layer.state)
-        input_layer.state.add_col_vec(b)
-        input_layer.state.mult(schedule[i])
-        input_layer.ApplyActivation()
-        input_layer.Sample()
-        # print 'softmax probs', input_layer.state.asarray().sum()
-
-    z = LogMeanExp(w_ais.asarray())
-    z += input_layer.dimensions * np.log(input_layer.numlabels)
-    z += hidden_layer.dimensions * np.log(2)
-    return z
-
-
 def AIS_DBM(model, schedule, clamp_input):
     # Initialize stuff
     steps = len(schedule)
     batchsize = model.t_op.batchsize
     w_ais = cm.CUDAMatrix(np.zeros((1, batchsize)))
 
+    is_rbm = len(model.layer) == 2
+
+    input_layer = model.GetLayerByName('input_layer') 
+    h1_layer = model.GetLayerByName('hidden1') 
+    if not is_rbm:
+        h2_layer = model.GetLayerByName('hidden2') 
+
+    if clamp_input:
+        datagetter = model.GetValidationBatch
+        datagetter()
+
     # set up temp data structures
     for layer in model.layer:
         layer.temp = layer.statesize
+
+    # allocate temp DS for softmax layer
+    input_layer.sum_energy1 = cm.CUDAMatrix(np.zeros((1, \
+            input_layer.dimensions * input_layer.batchsize)))
+    input_layer.sum_energy2 = cm.CUDAMatrix(np.zeros((1, \
+            input_layer.dimensions * input_layer.batchsize)))
 
     # INITIALIZE TO UNIFORM RANDOM for all layers except clamped layers
     for layer in model.layer:
@@ -131,30 +78,21 @@ def AIS_DBM(model, schedule, clamp_input):
             layer.state.assign(0)
             layer.ApplyActivation()
             layer.Sample()
-    w_ais = cm.CUDAMatrix(np.zeros((1, batchsize)))
 
-    input_layer, hidden_layer = model.layer
+
+    even_layers= [input_layer] if is_rbm else [input_layer, h2_layer]
+    odd_layers = [h1_layer]
 
     # RUN AIS.
     for step_idx in range(1, steps):
         sys.stdout.write('\rStep %d ' % step_idx)
         sys.stdout.flush()
 
-        visited_edges = {}
-
-        # ------------------------------
-        # Calculate the energies from all the nodes
-        for layer in model.layer:
-            # Initialize state to zero
+        # Calculate the energies of the input layer
+        for layer in even_layers:
             layer.state.assign(0)
 
             for i, edge in enumerate(layer.incoming_edge):
-
-                if edge in visited_edges:
-                    continue
-                else:
-                    visited_edges[edge] = True
-
                 neighbour = layer.incoming_neighbour[i]
                 inputs = neighbour.sample
                 if edge.node2 == layer:
@@ -165,13 +103,68 @@ def AIS_DBM(model, schedule, clamp_input):
                     factor = edge.proto.down_factor
 
                 layer.state.add_dot(w, inputs, mult=factor)
-
             b = layer.params['bias']
             layer.state.add_col_vec(b)
-            layer.state.mult(layer.sample)
 
+            if layer.__class__ is deepnet.softmax_layer.SoftmaxLayer:
+
+                if clamp_input:
+                    layer.state.mult(layer.sample)
+                    w_ais.add_sums(layer.state, axis=0, mult=schedule[\
+                               step_idx] - schedule[step_idx-1])
+                else:
+                    # Set some shapes and variables
+                    
+                    numlabels = layer.numlabels
+                    dimensions = layer.dimensions
+                    batchsize = layer.batchsize
+                    layer.sum_energy2.reshape((1, dimensions * batchsize))
+
+                    # Multiply the energies by the temperature
+                    layer.state.mult(schedule[step_idx-1], target=layer.temp)
+                    layer.state.mult(schedule[step_idx])
+
+                    # Get the sum of all the energies
+                    layer.temp.reshape((numlabels, dimensions * batchsize))
+                    layer.state.reshape((numlabels, dimensions * batchsize))
+
+                    cm.exp(layer.state)
+                    cm.exp(layer.temp)
+
+                    layer.temp.sum(axis=0, target=layer.sum_energy1)
+                    layer.state.sum(axis=0, target=layer.sum_energy2)
+                    cm.log(layer.sum_energy1)
+                    cm.log(layer.sum_energy2)
+                  
+                    # Subtract the energies
+                    layer.sum_energy2.subtract(layer.sum_energy1)
+
+                    # Restore the shapes of the matrices
+                    layer.sum_energy2.reshape((dimensions, batchsize))
+                    layer.temp.reshape((numlabels * dimensions, batchsize))
+                    layer.state.reshape((numlabels * dimensions, batchsize))
+
+                    # Add the contributions to w_ais
+                    w_ais.add_sums(layer.sum_energy2, axis=0)
+
+            # Do the log(1+exp) operation if logistic
+            if layer.__class__ is deepnet.logistic_layer.LogisticLayer:
+                layer.state.mult(schedule[step_idx-1], target=layer.temp)
+                layer.state.mult(schedule[step_idx])
+                cm.log_1_plus_exp(layer.state, target=layer.deriv)
+                cm.log_1_plus_exp(layer.temp)
+                layer.deriv.subtract(layer.temp)
+                w_ais.add_sums(layer.deriv, axis=0)
+
+        # Calculate the energies of the odd layers
+        for layer in odd_layers:
+            layer.state.assign(0)
+            b = layer.params['bias']
+            layer.state.add_col_vec(b)
+
+            layer.state.mult(layer.sample)
             w_ais.add_sums(layer.state, axis=0, mult=schedule[
-                           step_idx] - schedule[step_idx-1])
+                               step_idx] - schedule[step_idx-1])
 
         #-----------------------------------------
         # Update the state with temperature and sample from it
@@ -200,13 +193,16 @@ def AIS_DBM(model, schedule, clamp_input):
             layer.ApplyActivation()
             layer.Sample()
 
-    z = LogMeanExp(w_ais.asarray())
+    logz = LogMeanExp(w_ais.asarray())
+
     for layer in model.layer:
+        if layer.is_input and clamp_input:
+            continue
         if layer.__class__ is deepnet.logistic_layer.LogisticLayer:
-            z += layer.dimensions * np.log(2)
+            logz += layer.dimensions * np.log(2)
         else:
-            z += layer.dimensions * np.log(layer.numlabels)
-    return z
+            logz += layer.dimensions * np.log(layer.numlabels)
+    return logz
 
 
 def Usage():
@@ -219,8 +215,9 @@ if __name__ == '__main__':
     parser.add_argument("model_file", type=str)
     parser.add_argument("--train_file", type=str)
     parser.add_argument("--num_words", type=int)
-    parser.add_argument("--rbm", action='store_true')
-    parser.add_argument("numchains", type=int, default=1)
+    parser.add_argument("--clamp", action='store_true')
+    parser.add_argument("--numchains", type=int, default=1)
+    parser.add_argument("--schedule", type=str, default='quick', help='Select Schedule')
     args = parser.parse_args()
 
     board = tr.LockGPU()
@@ -228,24 +225,32 @@ if __name__ == '__main__':
     train_file = args.train_file
     numchains = args.numchains
     m = dbm.DBM(model_file, train_file)
-    # m.LoadModelOnGPU(batchsize=numchains)
-    m.LoadModelOnGPU()
-    # m.SetUpData()
-    plt.ion()
 
-    cm.CUDAMatrix.init_random(seed=42)
-    schedule = np.concatenate((
-                              # np.arange(0.0, 1.0, 0.01),
-                              # np.arange(0.0, 1.0, 0.001),
+    # Fix paths
+    dirname = os.path.split(m.t_op.data_proto_prefix)[1]
+    m.t_op.data_proto_prefix = os.path.join('/storage/data1/dbm/deepnet/deepnet/datasets/',\
+            dirname)
+    m.t_op.skip_last_piece = False
+    # ---  BREAKPOINT --- 
+    import ipdb; ipdb.set_trace() 
+
+    m.LoadModelOnGPU()
+    m.SetUpData()
+
+    schedules = {
+        'very-quick': np.arange(0.0, 1.0, 0.01),
+        'quick' : np.arange(0.0, 1.0, 0.001), 
+        'slow' : np.concatenate((
                               np.arange(0.0, 0.7, 0.001),  # 700
                               np.arange(0.7, 0.9, 0.0001),  # 2000
-                              np.arange(0.9, 1.0, 0.00002)  # 5000
-                              ))
-    if not args.rbm:
-        log_z = AIS_DBM(m, schedule, clamp_input=False)
-    else:
-        log_z = AISRbm(m, schedule)
+                              np.arange(0.9, 1.0, 0.00002)))  # 5000
+            }
+    schedule  = schedules[args.schedule]
+
+    cm.CUDAMatrix.init_random(seed=42)
+
+    log_z = AIS_DBM(m, schedule, clamp_input=args.clamp)
+
     print 'Log Z %.5f' % log_z
 
     tr.FreeGPU(board)
-    raw_input('Press Enter.')
