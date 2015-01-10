@@ -12,7 +12,7 @@ def check_sim3(expid):
 expids = [expid for expid in expids if not check_sim3(expid)]
 
 
-splits = 3
+splits = 2
 numchains = 20
 numchains_unclamped = 1000
 schedule = 'slow'
@@ -34,12 +34,16 @@ try:
        cmd = cmd.format(expid, numchains, numchains_unclamped, schedule)
        print >>fouts[idx%splits], cmd
        print >>fouts[idx%splits]
+       print >>fouts[idx%splits], 'sleep 2'
+       print >>fouts[idx%splits]
 
        cmd =  'python ais.py results/{0}/dbm_models/dbm_BEST '+\
                '--train_file results/{0}/trainers/train_CD_joint.pbtxt '+\
                '--numchains {1} --numchains_unclamped {2} --schedule {3} --outf results/likelihoods/{0}_dbm_ll.pkl'
        cmd = cmd.format(expid, numchains, numchains_unclamped, schedule)
        print >>fouts[idx%splits], cmd
+       print >>fouts[idx%splits]
+       print >>fouts[idx%splits], 'sleep 2'
        print >>fouts[idx%splits]
 finally:
     for fout in fouts: 
