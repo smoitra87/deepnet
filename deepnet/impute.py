@@ -118,12 +118,13 @@ def impute(model, mf_steps, hidden_mf_steps):
 
         # Calculate pll
         reshape_softmax(enter=True)
-        input_layer.state.apply_softmax_grad(data, target=input_layer.foo)
+        input_layer.state.get_softmax_cross_entropy(data,\
+                target=input_layer.batchsize_temp, tiny=input_layer.tiny)
         reshape_softmax(enter=False)
 
-        input_layer.foo.get_row_slice(offset, offset + numlabels , \
-                target=input_layer.fooslice)
-        pll.add_sums(input_layer.fooslice, axis=0)
+        input_layer.batchsize_temp.get_row_slice(dim_idx, dim_idx + 1 , \
+                target=input_layer.barslice)
+        pll.add_sums(input_layer.barslice, axis=0)
         
         # Calculate imputation error
         reshape_softmax(enter=True)
