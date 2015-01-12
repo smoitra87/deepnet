@@ -118,10 +118,20 @@ def sort_by_fields(records, fieldnames = []):
 
     return [records[idx] for idx in sorted_idxs]
 
+def write_csv(records, headers, outf):
+    import csv 
+    with open(outf, 'wb') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(headers)
+        for record in records:
+            writer.writerow(record)
+
 
 if __name__ == '__main__':  
     from argparse import ArgumentParser
     parser = ArgumentParser(description='Parses results by walking directories')
+    parser.add_argument("--outf", type=str, help="Output file")
+    parser.add_argument("--mode", type=str, help="html/csv")
     args = parser.parse_args()
     model_paths = walk_dir('.')
     exp_paths = defaultdict(list)
@@ -151,5 +161,12 @@ if __name__ == '__main__':
             rows.append(row)
 
         rows = sort_by_fields(rows, fieldnames=['dataset', 'Valid_CE', 'hidden1_width'])
-    display_html(rows, DisplayRecord._fields, launch_browser=True) 
-    
+    if args.mode == 'html' :
+        display_html(rows, DisplayRecord._fields, launch_browser=True) 
+    elif args.mode == 'csv':
+        if not args.outf:
+            raise ValueError('CSV file destination needed')
+        write_csv(rows, DisplayRecord._fields, args.outf)
+    else:
+        raise ValueError("Unknown output mode")
+
