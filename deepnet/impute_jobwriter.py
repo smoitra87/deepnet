@@ -10,8 +10,40 @@ def check_sim3(expid):
         if 'toy' in fin.read():
             return True
 
+banned_expids = [
+            'exp209',
+        'exp74',
+        'exp371',
+        'exp236',
+        'exp200',
+        'exp65',
+        'exp71',
+        'exp95',
+        'exp242',
+        'exp182',
+        'exp80',
+        'exp47',
+        'exp215',
+        'exp377',
+        'exp179',
+        'exp188',
+        'exp344',
+        'exp44',
+        'exp11',
+        'exp182',
+        'exp155',
+        'exp53',
+        'exp290',
+        'exp128',
+        'exp350',
+        'exp17',
+        'exp152',
+        'exp197',
+        'exp62']
 expids = [expid for expid in expids if not check_sim3(expid)]
-splits = 2
+expids = [expid for expid in expids if expid not in banned_expids]
+
+splits = 3 
 mf_steps = 5
 hid_mf_steps = 2
 
@@ -25,6 +57,7 @@ try:
         fouts.append(fout)
 
     for idx, expid in enumerate(expids) : 
+
        cmd =  'python impute.py --model_file results/{0}/dbm_models/rbm1_BEST '+\
                '--train_file results/{0}/trainers/train_CD_rbm1.pbtxt '+\
                '--infer-method exact --outf results/likelihoods/{0}_rbm_pll.pkl'

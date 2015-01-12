@@ -327,6 +327,6 @@ if __name__ == '__main__':
 
     import pickle
     with open(args.outf,'wb') as fout:
-        pkldata = { 'pll' : pll_data, 'imperr' : imperr }
+        pkldata = { 'pll' : pll_data, 'imperr' : imperr_data }
         pickle.dump(pkldata, fout)
 
