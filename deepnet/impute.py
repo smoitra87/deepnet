@@ -51,12 +51,9 @@ def impute_rbm_exact(model):
 
     batchsize = model.batchsize
     input_layer = model.GetLayerByName('input_layer') 
+    hidden_layer = model.GetLayerByName('hidden1') 
 
-    hidden_layers = []
-    for layer in model.layer:
-        if not layer.is_input:
-            hidden_layers.append(layer)
-
+    # Get input layer features
     dimensions = input_layer.dimensions 
     numlabels = input_layer.numlabels 
     data = input_layer.data
@@ -66,108 +63,69 @@ def impute_rbm_exact(model):
         layer.foo = layer.statesize
         layer.bar = layer.deriv
 
-    input_layer.fooslice = cm.CUDAMatrix(np.zeros([input_layer.numlabels,\
+    zeroslice = cm.CUDAMatrix(np.zeros([input_layer.numlabels,\
             batchsize]))
-    input_layer.barslice = cm.CUDAMatrix(np.zeros([1, batchsize]))
-    pll = cm.CUDAMatrix(np.zeros([1, batchsize]))
-    imputation_err = cm.CUDAMatrix(np.zeros([1, batchsize]))
-    
-    input_layer.biasslice = cm.CUDAMatrix(np.zeros([input_layer.numlabels,\
+    onesrow = cm.CUDAMatrix(np.ones([1,\
             batchsize]))
-    input_layer.biasslice.apply_softmax()
+    batchslice = cm.CUDAMatrix(np.zeros([1, batchsize]))
+    batchslice2 = cm.CUDAMatrix(np.zeros([1, batchsize]))
 
-    b = input_layer.params['bias']
-    input_layer.bar.add_col_vec(b)
-    input_layer.bar.reshape((numlabels, dimensions * batchsize))
-    input_layer.bar.apply_softmax()
-    input_layer.bar.reshape((numlabels *  dimensions, batchsize))
-
-    # INITIALIZE TO UNIFORM RANDOM for all layers except clamped layers
-    for layer in model.layer:
-        layer.state.assign(0)
-        layer.ApplyActivation()
-
-
-    def reshape_softmax(enter=True):
-        if enter:
-            input_layer.state.reshape((numlabels, dimensions * batchsize))    
-            input_layer.foo.reshape((numlabels, dimensions * batchsize))
-            data.reshape((1, dimensions * batchsize))
-            input_layer.batchsize_temp.reshape((1, dimensions * batchsize))
-        else:
-            input_layer.state.reshape((numlabels * dimensions, batchsize))
-            input_layer.foo.reshape((numlabels * dimensions, batchsize))
-            data.reshape((dimensions, batchsize))
-            input_layer.batchsize_temp.reshape((dimensions, batchsize))
+    hidden_bias = hidden_layer.params['bias']
+    input_bias = input_layer.params['bias']
+    edge = model.edge[0]
+    w = edge.params['weight']
 
     # RUN Imputation Error
     for dim_idx in range(dimensions):
 
         #-------------------------------------------
-        # Set state of input variables
+        # Set state of input variables 
         input_layer.GetData()
-        offset = dim_idx * numlabels
-#        input_layer.state.set_row_slice(offset, offset + numlabels, \
-#                input_layer.biasslice)
-        input_layer.bar.get_row_slice(offset, offset + numlabels , \
-                target=input_layer.fooslice)
-        input_layer.state.set_row_slice(offset, offset + numlabels, \
-                input_layer.fooslice)
+        dim_offset = dim_idx * numlabels
 
-        for layer in model.layer:
-            if not layer.is_input:
-                layer.state.assign(0)
+        for label_idx in range(numlabels):
+            #Assign state value
+            label_offset = dim_idx * numlabels + label_idx
+            input_layer.state.set_row_slice(dim_offset, dim_offset + numlabels, \
+                    zeroslice)
+            input_layer.state.set_row_slice(label_offset, label_offset+1, onesrow)
 
-        # Run MF steps
-        for mf_idx in range(mf_steps):
-            for hid_mf_idx in range(hidden_mf_steps):
-                for layer in hidden_layers:
-                    model.ComputeUp(layer, train=False, compute_input=False, step=0,
-                        maxsteps=0, use_samples=False, neg_phase=False)
-            model.ComputeUp(input_layer, train=False, compute_input=True, step=0,
-                    maxsteps=0, use_samples=False, neg_phase=False)
+            cm.dot(w.T, input_layer.state, target=hidden_layer.state)
+            hidden_layer.state.add_col_vec(hidden_bias)
+            cm.log_1_plus_exp(hidden_layer.state)
+            hidden_layer.state.sum(axis=0, target=batchslice)
+            cm.dot(input_bias.T, input_layer.state, target=batchslice2)
+            batchslice.add_row_vec(batchslice2)
 
-            input_layer.state.get_row_slice(offset, offset + numlabels , \
-                target=input_layer.fooslice)
+            input_layer.foo.set_row_slice(label_offset, label_offset+1, batchslice)
+  
+    # Apply softmax on log Z_v as energies
+    input_layer.foo.reshape((numlabels, dimensions * batchsize))        
+    input_layer.foo.apply_softmax()
 
-            input_layer.GetData()
-            input_layer.state.set_row_slice(offset, offset + numlabels , \
-                input_layer.fooslice)
+    data.reshape((1, dimensions * batchsize))
+    # Calculate Imputation Error
+    input_layer.batchsize_temp.reshape((1, dimensions * batchsize))
+    input_layer.foo.get_softmax_correct(data, target=input_layer.batchsize_temp)
+    input_layer.batchsize_temp.reshape((dimensions, batchsize))
+    imperr_cpu = (dimensions - input_layer.batchsize_temp.sum(axis=0).asarray() )/ (0. + dimensions)
 
-        # Calculate pll
-        reshape_softmax(enter=True)
-        input_layer.state.get_softmax_cross_entropy(data,\
-                target=input_layer.batchsize_temp, tiny=input_layer.tiny)
-        reshape_softmax(enter=False)
+    # Calculate Pseudo ll
+    input_layer.batchsize_temp.reshape((1, dimensions *  batchsize))
+    input_layer.foo.get_softmax_cross_entropy(data, target=input_layer.batchsize_temp, \
+            tiny=input_layer.tiny)
+    input_layer.batchsize_temp.reshape((dimensions, batchsize))
+    pll_cpu = - input_layer.batchsize_temp.sum(axis=0).asarray() 
 
-        input_layer.batchsize_temp.get_row_slice(dim_idx, dim_idx + 1 , \
-                target=input_layer.barslice)
-        pll.add_sums(input_layer.barslice, axis=0)
-        
-        # Calculate imputation error
-        reshape_softmax(enter=True)
-        input_layer.state.get_softmax_correct(data, target=input_layer.batchsize_temp)
-        reshape_softmax(enter=False)
+    # Undo rehapes
+    input_layer.foo.reshape((numlabels * dimensions, batchsize))
+    data.reshape((dimensions, batchsize))
 
-        input_layer.batchsize_temp.get_row_slice(dim_idx, dim_idx + 1 , \
-                target=input_layer.barslice)
-        imputation_err.add_sums(input_layer.barslice, axis=0, mult=-1.)
-        imputation_err.add(1.)
-
-    #--------------------------------------
-    # free device memory for newly created arrays
-    pll_cpu = pll.asarray()
-    imperr_cpu = imputation_err.asarray()
-    imperr_cpu /= (dimensions+0.)
-
-    input_layer.fooslice.free_device_memory()
-    input_layer.biasslice.free_device_memory()
-    input_layer.barslice.free_device_memory()
-    pll.free_device_memory()
-    imputation_err.free_device_memory()
+    zeroslice.free_device_memory()
+    onesrow.free_device_memory()
+    batchslice.free_device_memory()
 
     return pll_cpu, imperr_cpu
-
 
 def impute_mf(model, mf_steps, hidden_mf_steps):
     # Initialize stuff
@@ -266,7 +224,7 @@ def impute_mf(model, mf_steps, hidden_mf_steps):
 
     #--------------------------------------
     # free device memory for newly created arrays
-    pll_cpu = pll.asarray()
+    pll_cpu = -pll.asarray()
     imperr_cpu = imputation_err.asarray()
     imperr_cpu /= (dimensions+0.)
 
@@ -288,7 +246,7 @@ if __name__ == '__main__':
     parser = ArgumentParser(description="Run AIS")
     parser.add_argument("--model_file", type=str)
     parser.add_argument("--train_file", type=str)
-    parser.add_argument("--infer", type=str, default='mf', help='mf/gibbs')
+    parser.add_argument("--infer-method", type=str, default='exact', help='mf/gibbs/exact')
     parser.add_argument("--mf-steps", type=int, default=2)
     parser.add_argument("--hidden-mf-steps", type=int, default=2)
     parser.add_argument("--outf", type=str, help='Output File')
@@ -330,6 +288,9 @@ if __name__ == '__main__':
 
     cm.CUDAMatrix.init_random(seed=int(time.time()))
 
+    if len(model.layer) > 2 and args.infer_method=='exact':
+        raise ValueError('Cannot use exact Exact inference for DBMs')
+
     from collections import defaultdict    
     pll_data = defaultdict(list)
     imperr_data = defaultdict(list)
@@ -340,7 +301,13 @@ if __name__ == '__main__':
             print("Evalutating batch {}".format(batch_idx+1))
             datagetter()
 
-            pll, imperr = impute_mf(model, args.mf_steps, args.hidden_mf_steps)
+            if args.infer_method == 'mf':
+                pll, imperr = impute_mf(model, args.mf_steps, args.hidden_mf_steps)
+            elif args.infer_method == 'exact':
+                pll, imperr = impute_rbm_exact(model)
+            else:
+                raise ValueError("Unknown infer method")
+
             pll, imperr = pll.flatten(), imperr.flatten()
             pll_data[data_type].append(pll)
             imperr_data[data_type].append(imperr)
@@ -362,8 +329,4 @@ if __name__ == '__main__':
     with open(args.outf,'wb') as fout:
         pkldata = { 'pll' : pll_data, 'imperr' : imperr }
         pickle.dump(pkldata, fout)
-
-    # ---  BREAKPOINT --- 
-    import ipdb; ipdb.set_trace()
-
 
