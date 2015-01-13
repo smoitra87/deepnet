@@ -1,0 +1,1 @@
+Train_CE,Valid_CE,Test_CE,Train_Acc,Valid_Acc,Test_Acc,model_name,dataset,best_step,sparsity,dropout,input_width,hidden1_width,hidden2_width,epsilon,epsilon_decay,l2_decay,initial_momentum,final_momentum,expid,expid,model_name,train-ll,valid-ll,test-ll,train-pll,valid-pll,test-pll,train-imperr,valid-imperr,test-imperr
