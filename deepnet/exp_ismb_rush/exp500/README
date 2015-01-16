@@ -1,0 +1,1 @@
+--initial_momentum 0.5 --final_momentum 0.90000 --model_dir experiments/exp269/dbm_models --rep_dir experiments/exp269/dbm_reps --epsilon_decay --l2_decay 0.001 --base_epsilon 0.5 --hidden1_width 1000 --hidden2_width 1000  --data_dir datasets/PF00240 --input_width 69 --batchsize 200
