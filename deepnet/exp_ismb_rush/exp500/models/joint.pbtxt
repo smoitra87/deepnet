@@ -101,4 +101,4 @@ hyperparams {
   enable_display: false
   select_model_using_cross_entropy: true
 }
-prefix: "/home/ubuntu/deepnet/deepnet/experiments/exp269/dbm_models"
+prefix: "/home/ubuntu/deepnet/deepnet/exp_ismb_rush/exp500/dbm_models"
