@@ -2,7 +2,7 @@ name: "dbm"
 model_type: DBM
 layer {
   name: "input_layer"
-  dimensions: 69
+  dimensions: 81
   numlabels: 21
   param {
     name: "bias"
@@ -30,7 +30,7 @@ layer {
 }
 layer {
   name: "hidden1"
-  dimensions: 69
+  dimensions: 81
   param {
     name: "bias"
     initialization: PRETRAINED
@@ -45,7 +45,7 @@ layer {
 }
 layer {
   name: "hidden2"
-  dimensions: 69
+  dimensions: 81
   param {
     name: "bias"
     initialization: PRETRAINED
@@ -101,4 +101,4 @@ hyperparams {
   enable_display: false
   select_model_using_cross_entropy: true
 }
-prefix: "/home/ubuntu/deepnet/deepnet/experiments/exp269/dbm_models"
+prefix: "/home/ubuntu/deepnet/deepnet/experiments/exp270/dbm_models"

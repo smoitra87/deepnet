@@ -2,7 +2,7 @@ name: "rbm2"
 model_type: DBM
 layer {
   name: "hidden1"
-  dimensions: 1000
+  dimensions: 69
   param {
     name: "bias"
     initialization: CONSTANT
@@ -24,7 +24,7 @@ layer {
 }
 layer {
   name: "hidden2"
-  dimensions: 1000
+  dimensions: 69
   param {
     name: "bias"
     initialization: CONSTANT
