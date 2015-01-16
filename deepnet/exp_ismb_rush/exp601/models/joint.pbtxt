@@ -1,12 +1,13 @@
-name: "rbm1"
+name: "dbm"
 model_type: DBM
 layer {
   name: "input_layer"
-  dimensions: 69
+  dimensions: 81
   numlabels: 21
   param {
     name: "bias"
-    initialization: CONSTANT
+    initialization: PRETRAINED
+    pretrained_model: "rbm1_BEST"
   }
   is_input: true
   loss_function: CROSS_ENTROPY
@@ -32,7 +33,23 @@ layer {
   dimensions: 250
   param {
     name: "bias"
-    initialization: CONSTANT
+    initialization: PRETRAINED
+    pretrained_model: "rbm1_BEST"
+  }
+  hyperparams {
+    apply_l2_decay: false
+  }
+  performance_stats {
+    compute_sparsity: true
+  }
+}
+layer {
+  name: "hidden2"
+  dimensions: 250
+  param {
+    name: "bias"
+    initialization: PRETRAINED
+    pretrained_model: "rbm2_BEST"
   }
   hyperparams {
     apply_l2_decay: false
@@ -47,14 +64,26 @@ edge {
   directed: false
   param {
     name: "weight"
-    initialization: DENSE_GAUSSIAN_SQRT_FAN_IN
-    sigma: 1.0
+    initialization: PRETRAINED
+    pretrained_model: "rbm1_BEST"
   }
+  up_factor: 0.5
+}
+edge {
+  node1: "hidden1"
+  node2: "hidden2"
+  directed: false
+  param {
+    name: "weight"
+    initialization: PRETRAINED
+    pretrained_model: "rbm2_BEST"
+  }
+  down_factor: 0.5
 }
 hyperparams {
   base_epsilon: 0.5
   epsilon_decay: INVERSE_T
-  epsilon_decay_half_life: 20000
+  epsilon_decay_half_life: 5000
   initial_momentum: 0.5
   final_momentum: 0.9
   momentum_change_steps: 3000
@@ -67,6 +96,9 @@ hyperparams {
   apply_l2_decay: true
   l2_decay: 0.001
   activation: LOGISTIC
-  gibbs_steps: 1
+  mf_steps: 5
+  gibbs_steps: 5
+  enable_display: false
   select_model_using_cross_entropy: true
 }
+prefix: "/home/ubuntu/deepnet/deepnet/experiments/exp270/dbm_models"

@@ -2,7 +2,7 @@ name: "rbm1"
 model_type: DBM
 layer {
   name: "input_layer"
-  dimensions: 69
+  dimensions: 81
   numlabels: 21
   param {
     name: "bias"

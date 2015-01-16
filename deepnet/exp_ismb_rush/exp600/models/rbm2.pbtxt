@@ -1,35 +1,30 @@
-name: "rbm1"
+name: "rbm2"
 model_type: DBM
 layer {
-  name: "input_layer"
-  dimensions: 69
-  numlabels: 21
+  name: "hidden1"
+  dimensions: 81
   param {
     name: "bias"
     initialization: CONSTANT
   }
   is_input: true
-  loss_function: CROSS_ENTROPY
+  loss_function: SQUARED_LOSS
   hyperparams {
-    sparsity: false
-    dropout: false
     apply_l2_decay: false
-    activation: SOFTMAX
   }
   data_field {
-    train: "train_data"
-    validation: "validation_data"
-    test: "test_data"
+    train: "hidden1_train"
+    validation: "hidden1_validation"
+    test: "hidden1_test"
   }
   performance_stats {
-    compute_correct_preds: true
-    compute_cross_entropy: true
-    compute_error: false
+    compute_error: true
+    compute_sparsity: true
   }
 }
 layer {
-  name: "hidden1"
-  dimensions: 250
+  name: "hidden2"
+  dimensions: 81
   param {
     name: "bias"
     initialization: CONSTANT
@@ -42,8 +37,8 @@ layer {
   }
 }
 edge {
-  node1: "input_layer"
-  node2: "hidden1"
+  node1: "hidden1"
+  node2: "hidden2"
   directed: false
   param {
     name: "weight"
@@ -68,5 +63,5 @@ hyperparams {
   l2_decay: 0.001
   activation: LOGISTIC
   gibbs_steps: 1
-  select_model_using_cross_entropy: true
+  select_model_using_error: true
 }
