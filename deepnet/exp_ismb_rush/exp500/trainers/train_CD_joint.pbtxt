@@ -8,7 +8,7 @@ batchsize: 200
 data_proto: "data.pbtxt"
 eval_after: 1000
 checkpoint_after: 5000
-checkpoint_directory: "/home/ubuntu/deepnet/deepnet/experiments/exp269/dbm_models"
+checkpoint_directory: "/home/ubuntu/deepnet/deepnet/exp_ismb_rush/exp500/dbm_models"
 randomize: true
 verbose: true
 data_proto_prefix: "/home/ubuntu/deepnet/deepnet/datasets/PF00240"
