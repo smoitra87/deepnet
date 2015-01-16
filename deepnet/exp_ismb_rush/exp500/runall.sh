@@ -16,7 +16,7 @@ fi
 # Location of the downloaded data. This is also the place where learned models
 # and representations extracted from them will be written. Should have lots of
 # space ~30G. EDIT this for your setup.
-results_dir=${deepnet}/experiments/$expid
+results_dir=${deepnet}/exp_ismb_rush/$expid
 
 # If you get 'out of memory' errors, try decreasing this.
 gpu_mem=4G
