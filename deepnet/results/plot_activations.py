@@ -40,5 +40,5 @@ ax4.hist(X4.flatten(), bins=100)
 ax4.set_title('PDZ w/o dropout')
 ax4.set_xlabel('Activation Strength')
 
-plt.savefig("dropout.png")
+plt.savefig("dropout.pdf")
 

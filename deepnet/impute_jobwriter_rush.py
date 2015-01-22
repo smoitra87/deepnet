@@ -5,7 +5,7 @@ expids = glob.glob('exp_ismb_rush/exp*')
 expids = [os.path.basename(expid) for expid in expids]
 
 
-splits = 4
+splits = 3 
 mf_steps = 5
 hid_mf_steps = 2
 
