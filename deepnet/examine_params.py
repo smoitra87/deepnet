@@ -58,44 +58,68 @@ if __name__ == '__main__':
 
     # construct contact map from weight matrix
     adjmaps = []
-    sweights = sorted(weight.flatten(), reverse=True)
-   
-    cutoffs = sweights[:10000:10]
+
+    pair_strength = weight.dot(weight.T)
+    pair_strength = pair_strength
+    nFeats,_ = pair_strength.shape
+    nRes = nFeats/21
+
+    adjmap = np.zeros((nRes, nRes))
+    for i in range(nRes):
+        for j in range(nRes):
+            edge_mat = pair_strength[i*21:(i*21+21), j*21:(j*21+21)]
+            adjmap[i,j] = np.sort(edge_mat.flatten())[-5:].sum()
+    
+
+    # normalize by entropy of column
+    dat = np.load('datasets/PF00240/PF00240_train.npy')
+    nSeq = dat.shape[0]
+
+    counts = np.zeros((21,nRes))
+    for i in range(21):
+        counts[i,:] = (dat==i).sum(axis=0) + 1
+    probs = counts / (nSeq+21)
+
+    entropy = -(probs * np.log(probs)).sum(axis=0)
+    entropy = entropy[:,np.newaxis] + entropy[np.newaxis, :]
+
+    cov = adjmap / entropy
+
+    mincov = cov.min()
+    for i in range(nRes):
+        cov[i,i] = mincov
+
+
+    plt.matshow(cov)
+
+    cov = np.triu(cov)
+    cutoffs = sorted(cov.flatten(), reverse=True)
 
     ubqadj = np.load('1UBQ_adj.npy')
+    for i in range(nRes-3):
+        ubqadj[i:i+3,i:i+3] = 0
 
+
+
+    ubqadj = np.triu(ubqadj)
     tp,fp = [],[]
-
     prev_count, predcount = 0,0
 
+
     for idx,cutoff in enumerate(cutoffs) : 
-        adj = np.zeros((69, 69))
-        strong_hids = ((weight > cutoff).sum(axis=0)) > 1
-        strong_hids = weight[:,strong_hids] >= cutoff
-        (nrows, ncols) = strong_hids.shape
-        for idx in range(ncols):
-
-            vis_idx = np.where(strong_hids[:,idx])[0]/21
-            vis_idx = list(set(vis_idx))
-            from itertools import product
-            i,j = zip(*product(vis_idx, vis_idx))
-            adj[i, j] = 1.
-      
+        adj = cov > cutoff
         pred_count = np.triu(adj).sum()
-        if pred_count == prev_count : 
-            continue
-        else:
-            prev_count = pred_count
-
         adj_common = ubqadj *  adj;
-        
         precision = (np.triu(adj_common).sum() + 0.) / (pred_count)
         recall = (np.triu(adj_common).sum() + 0.) / (np.triu(ubqadj).sum())
-        #print 'precision = {} ({}/{})'.format(precision, np.triu(adj_common).sum(), \
-        #        pred_count)
-        #print 'recall = {}'.format(recall)
+
+        if pred_count == int(nRes/2):
+            print 'precision = {} ({}/{})'.format(precision, np.triu(adj_common).sum(), \
+                    pred_count)
+            print 'recall = {}'.format(recall)
         tp.append((np.triu(adj_common).sum()+0.)/np.triu(ubqadj).sum())
-        fp.append((pred_count - np.triu(adj_common).sum()+0.)/((69*68/2)-np.triu(ubqadj).sum()))
+        fp.append((pred_count - np.triu(adj_common).sum()+0.)/((nRes*(nRes-1)/2)-np.triu(ubqadj).sum()))
+
 
     plt.figure()
     plt.plot(fp, tp);
@@ -104,7 +128,11 @@ if __name__ == '__main__':
     plt.title('ROC curve contact map UBQ')
     plt.xlabel('FPR')
     plt.ylabel('TPR')
-    plt.savefig('ubqroc.pdf')
+
+    # ---  BREAKPOINT --- 
+    import ipdb; ipdb.set_trace() 
+
+#    plt.savefig('ubqroc.pdf')
 
    
 #    for idx in range(n_clusters):
