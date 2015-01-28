@@ -16,10 +16,10 @@ class LinearLayer(Layer):
     state = self.state
     #sample.assign(state)
     #state.sample_gaussian(target=sample, mult=0.01)
+    sample.fill_with_randn()
     if self.learn_precision:
-      sample.fill_with_randn()
       sample.div_by_col(self.params['precision'])
-      sample.add(state)
+    sample.add(state)
 
   def ComputeDeriv(self):
     """Compute derivative w.r.t input given derivative w.r.t output."""

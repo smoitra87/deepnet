@@ -98,12 +98,14 @@ class DBM(NeuralNet):
             layer.state.mult(factor)
         else:
           layer.state.add_dot(w, inputs, mult=factor)
-      b = layer.params['bias']
-      if layer.replicated_neighbour is None:
-        layer.state.add_col_vec(b)
-      else:
-        layer.state.add_dot(b, layer.replicated_neighbour.NN)
+      if 'bias' in layer.params:
+          b = layer.params['bias']
+          if layer.replicated_neighbour is None:
+            layer.state.add_col_vec(b)
+          else:
+            layer.state.add_dot(b, layer.replicated_neighbour.NN)
       layer.ApplyActivation()
+
     if layer.hyperparams.dropout:
       if train and maxsteps - step >= layer.hyperparams.stop_dropout_for_last:
         # Randomly set states to zero.
@@ -247,7 +249,8 @@ class DBM(NeuralNet):
       layer = layer.tied_to
     layer.num_grads_received += 1
     if layer.num_grads_received == layer.num_shares:
-      layer.Update('bias', step, no_reg=True)  # By default, do not regularize bias.
+      if 'bias' in layer.params:
+         layer.Update('bias', step, no_reg=True)  # By default, do not regularize bias.
 
   def UpdateEdgeParams(self, edge, step):
     """ Update the parameters associated with this edge."""

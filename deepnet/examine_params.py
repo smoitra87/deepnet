@@ -69,6 +69,9 @@ if __name__ == '__main__':
         for j in range(nRes):
             edge_mat = pair_strength[i*21:(i*21+21), j*21:(j*21+21)]
             adjmap[i,j] = np.sort(edge_mat.flatten())[-5:].sum()
+            #adjmap[i,j] = edge_mat.sum()
+            #adjmap[i,j] = edge_mat.max()
+            adjmap[i,j] = np.sqrt(edge_mat.sum())
     
 
     # normalize by entropy of column
@@ -82,8 +85,23 @@ if __name__ == '__main__':
 
     entropy = -(probs * np.log(probs)).sum(axis=0)
     entropy = entropy[:,np.newaxis] + entropy[np.newaxis, :]
+#    temp = entropy
+#    entropy = np.zeros((nRes, nRes))
+#    for i in range(nRes):
+#        for j in range(nRes):
+#            entropy[i,j] = max(temp[i], temp[j])
+    
 
     cov = adjmap / entropy
+
+    # Create another cov using MI
+    from sklearn.metrics.cluster import adjusted_mutual_info_score
+    from sklearn.metrics.cluster import mutual_info_score
+
+#    cov = np.zeros((nRes, nRes))
+#    for i in range(nRes):
+#        for j in range(i,nRes):
+#            cov[i,j] = adjusted_mutual_info_score(dat[:,i], dat[:,j])
 
     mincov = cov.min()
     for i in range(nRes):
@@ -96,8 +114,8 @@ if __name__ == '__main__':
     cutoffs = sorted(cov.flatten(), reverse=True)
 
     ubqadj = np.load('1UBQ_adj.npy')
-    for i in range(nRes-3):
-        ubqadj[i:i+3,i:i+3] = 0
+#    for i in range(nRes-5):
+#        ubqadj[i:i+5,i:i+5] = 0
 
 
 
