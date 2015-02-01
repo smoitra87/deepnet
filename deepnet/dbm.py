@@ -98,6 +98,10 @@ class DBM(NeuralNet):
             layer.state.mult(factor)
         else:
           layer.state.add_dot(w, inputs, mult=factor)
+      if 'diag' in layer.params:
+          diag = layer.params['diag']
+          layer.state.add_col_mult(diag, mult=0.5) 
+
       if 'bias' in layer.params:
           b = layer.params['bias']
           if layer.replicated_neighbour is None:

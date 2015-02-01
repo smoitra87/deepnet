@@ -192,6 +192,175 @@ def AIS_DBM(model, schedule, clamp_input):
     return w_ais.asarray()
 
 
+def AIS_Gaussian_RBM(model, schedule, clamp_input=False):
+    # Initialize stuff
+    steps = len(schedule)
+    batchsize = model.batchsize
+    w_ais = cm.CUDAMatrix(np.zeros((1, batchsize)))
+
+    input_layer = model.GetLayerByName('input_layer') 
+    bernoulli_layer = model.GetLayerByName('bernoulli_hidden1') 
+    gaussian_layer = model.GetLayerByName('gaussian_hidden1') 
+
+    for edge in model.edge:
+        if edge.node1.name != 'input_layer': 
+            raise ValueError('Not an RBM')
+
+    # set up temp data structures
+    for layer in model.layer:
+        layer.temp = layer.statesize
+
+    # allocate temp DS for softmax layer
+    input_layer.sum_energy1 = cm.CUDAMatrix(np.zeros((1, \
+            input_layer.dimensions * input_layer.batchsize)))
+    input_layer.sum_energy2 = cm.CUDAMatrix(np.zeros((1, \
+            input_layer.dimensions * input_layer.batchsize)))
+
+    batchslice2 = cm.CUDAMatrix(np.zeros([1, batchsize]))
+    datasize_squared = cm.CUDAMatrix(np.zeros([batchsize, batchsize]))
+    datasize_eye = cm.CUDAMatrix(np.eye(batchsize))
+    datasize_eye2 = cm.CUDAMatrix(np.eye(batchsize))
+    if gaussian_layer:
+        gedge = next(e for e in model.edge if e.node1.name == 'input_layer' \
+                and e.node2.name == 'gaussian_hidden1')
+        gw = gedge.params['weight']
+        input_diag = input_layer.params['diag']
+        diag_val = input_diag.sum() / (input_layer.dimensions  * input_layer.numlabels)
+
+    # INITIALIZE TO UNIFORM RANDOM for all layers except clamped layers
+    for layer in model.layer:
+        if layer.is_input and clamp_input:
+            layer.GetData()
+            layer.sample.assign(layer.state)
+        else:
+            layer.state.assign(0)
+            layer.ApplyActivation()
+            layer.Sample()
+
+    if bernoulli_layer:
+        sampling_layers = [input_layer, bernoulli_layer]
+    else:
+        sampling_layers = [input_layer]
+
+    # RUN AIS.
+    for step_idx in range(1, steps):
+        sys.stdout.write('\rStep %d ' % step_idx)
+        sys.stdout.flush()
+
+        # Calculate the energies of the input layer
+        for layer in sampling_layers:
+            layer.state.assign(0)
+
+            for i, edge in enumerate(layer.incoming_edge):
+                neighbour = layer.incoming_neighbour[i]
+                inputs = neighbour.sample
+                if edge.node2 == layer:
+                    w = edge.params['weight'].T
+                    factor = edge.proto.up_factor
+                else:
+                    w = edge.params['weight']
+                    factor = edge.proto.down_factor
+
+                layer.state.add_dot(w, inputs, mult=factor)
+
+            if 'bias' in layer.params:
+                b = layer.params['bias']
+                layer.state.add_col_vec(b)
+
+            if layer is input_layer:
+
+                if clamp_input:
+                    layer.state.mult(layer.sample)
+                    w_ais.add_sums(layer.state, axis=0, mult=schedule[\
+                               step_idx] - schedule[step_idx-1])
+                else:
+                    # Set some shapes and variables
+                    
+                    numlabels = layer.numlabels
+                    dimensions = layer.dimensions
+                    batchsize = layer.batchsize
+                    layer.sum_energy2.reshape((1, dimensions * batchsize))
+
+                    # Multiply the energies by the temperature
+                    layer.state.mult(schedule[step_idx-1], target=layer.temp)
+                    layer.state.mult(schedule[step_idx])
+
+                    # Get the sum of all the energies
+                    layer.temp.reshape((numlabels, dimensions * batchsize))
+                    layer.state.reshape((numlabels, dimensions * batchsize))
+
+                    cm.exp(layer.state)
+                    cm.exp(layer.temp)
+
+                    layer.temp.sum(axis=0, target=layer.sum_energy1)
+                    layer.state.sum(axis=0, target=layer.sum_energy2)
+                    cm.log(layer.sum_energy1)
+                    cm.log(layer.sum_energy2)
+                  
+                    # Subtract the energies
+                    layer.sum_energy2.subtract(layer.sum_energy1)
+
+                    # Restore the shapes of the matrices
+                    layer.sum_energy2.reshape((dimensions, batchsize))
+                    layer.temp.reshape((numlabels * dimensions, batchsize))
+                    layer.state.reshape((numlabels * dimensions, batchsize))
+
+                    # Add the contributions to w_ais
+                    w_ais.add_sums(layer.sum_energy2, axis=0)
+
+                if gaussian_layer:
+                    # Add contributions from gaussian hidden layer
+                    cm.dot(gw.T, input_layer.sample, target=gaussian_layer.state)
+                    cm.dot(gaussian_layer.state.T, gaussian_layer.state, target= datasize_squared)
+                    datasize_squared.mult(datasize_eye, target=datasize_eye2)
+                    datasize_eye2.sum(axis=0, target=batchslice2)
+
+                    # Add constants from gaussian hidden layer
+                    integration_constant = gaussian_layer.dimensions * np.log(2*np.pi)
+                    integration_constant += input_layer.dimensions * diag_val 
+                    batchslice2.add(integration_constant)
+                    w_ais.add_row_mult(batchslice2, \
+                            0.5 * (schedule[step_idx] - schedule[step_idx-1]))
+
+
+            # Do the log(1+exp) operation if logistic
+            if layer is bernoulli_layer :
+                layer.state.mult(schedule[step_idx-1], target=layer.temp)
+                layer.state.mult(schedule[step_idx])
+                cm.log_1_plus_exp(layer.state, target=layer.deriv)
+                cm.log_1_plus_exp(layer.temp)
+                layer.deriv.subtract(layer.temp)
+                w_ais.add_sums(layer.deriv, axis=0)
+
+        #-----------------------------------------
+        # Update the state with temperature and sample from it
+        for layer in model.layer:
+            if layer.is_input and clamp_input:
+                continue
+            for i, edge in enumerate(layer.incoming_edge):
+                neighbour = layer.incoming_neighbour[i]
+                inputs = neighbour.sample
+                if edge.node2 == layer:
+                    w = edge.params['weight'].T
+                    factor = edge.proto.up_factor
+                else:
+                    w = edge.params['weight']
+                    factor = edge.proto.down_factor
+                    if factor != 1:
+                        layer.state.mult(factor)
+                if i == 0:
+                    cm.dot(w, inputs, target=layer.state)
+                else:
+                    layer.state.add_dot(w, inputs, mult=factor)
+
+            if 'bias' in layer.params:
+                b = layer.params['bias']
+                layer.state.add_col_vec(b)
+            layer.state.mult(schedule[step_idx])
+            layer.ApplyActivation()
+            layer.Sample()
+
+    return w_ais.asarray()
 
 def Usage():
     print '%s <model file> <number of Markov chains to run> [number of words (for Replicated Softmax models)]'
@@ -207,6 +376,7 @@ if __name__ == '__main__':
     parser.add_argument("--numchains_unclamped", type=int, default=1000)
     parser.add_argument("--schedule", type=str, default='quick', help='Select Schedule')
     parser.add_argument("--outf", type=str, help='Output File')
+    parser.add_argument("--is_rbm", action='store_true', help='RBM')
     args = parser.parse_args()
 
     if not args.outf : 
@@ -263,6 +433,8 @@ if __name__ == '__main__':
             continue
         if layer.__class__ is deepnet.logistic_layer.LogisticLayer:
             base_logz += layer.dimensions * np.log(2)
+        if layer.__class__ is deepnet.linear_layer.LinearLayer:
+            base_logz += layer.dimensions * np.log(2 * np.pi) * 0.5
         else:
             base_logz += layer.dimensions * np.log(layer.numlabels)
 
@@ -284,7 +456,10 @@ if __name__ == '__main__':
                     cpudata = np.tile(cpudata,(1, args.numchains))
                     layer.data = cm.CUDAMatrix(cpudata)
 
-            chains = AIS_DBM(model, schedule, True)
+            if args.is_rbm:
+                chains = AIS_Gaussian_RBM(model, schedule, clamp_input=True)
+            else:
+                chains = AIS_DBM(model, schedule, clamp_input=True)
             chains = chains.flatten()
             num_replicated_chains  = len(chains)
             batchsize = num_replicated_chains / args.numchains
@@ -300,13 +475,18 @@ if __name__ == '__main__':
     #----------------------------------------------------------------------
     # log_z for unclamped model
     model.ResetBatchsize(args.numchains_unclamped)
-    chains = AIS_DBM(model, schedule, clamp_input=False)
+    if args.is_rbm:
+        chains = AIS_Gaussian_RBM(model, schedule, clamp_input=False)
+    else:
+        chains = AIS_DBM(model, schedule, clamp_input=False)
     model_logz = chains.flatten()
         
     base_logz = 0.0
     for layer in model.layer:
         if layer.__class__ is deepnet.logistic_layer.LogisticLayer:
             base_logz += layer.dimensions * np.log(2)
+        if layer.__class__ is deepnet.linear_layer.LinearLayer:
+            base_logz += layer.dimensions * np.log(2 * np.pi) * 0.5
         else:
             base_logz += layer.dimensions * np.log(layer.numlabels)
     model_logz += base_logz
@@ -317,6 +497,12 @@ if __name__ == '__main__':
     for dtype in logz_data :
         logz = logz_data[dtype]
         print 'clampled %s Log Z %.5f, Var %.5f' % (dtype, logz.mean(), logz.std())
+
+    print '-----Test Log Likelihood-----'
+    for dtype in logz_data :
+        logz = logz_data[dtype]
+        print 'clampled %s Log Z %.5f, Var %.5f' % (dtype, logz.mean() - model_logz.mean(), \
+                logz.std())
 
     tr.FreeGPU(board)
 

@@ -46,6 +46,127 @@ def impute_dbm_ais(model):
     """Run approximate pll using AIS on a DBM """
 
 
+def impute_rbm_gaussian_exact(model):
+    """ run exact exact pll and imputation error on an rbm """
+
+    batchsize = model.batchsize
+    input_layer = model.GetLayerByName('input_layer') 
+    hidden_layer = model.GetLayerByName('bernoulli_hidden1') 
+    gaussian_layer = model.GetLayerByName('gaussian_hidden1') 
+
+    # Get input layer features
+    dimensions = input_layer.dimensions 
+    numlabels = input_layer.numlabels 
+    data = input_layer.data
+
+    # set up temp data structures
+    for layer in model.layer:
+        layer.foo = layer.statesize
+        layer.bar = layer.deriv
+
+    zeroslice = cm.CUDAMatrix(np.zeros([input_layer.numlabels,\
+            batchsize]))
+    onesrow = cm.CUDAMatrix(np.ones([1,\
+            batchsize]))
+    batchslice = cm.CUDAMatrix(np.zeros([1, batchsize]))
+    batchzeroslice = cm.CUDAMatrix(np.zeros([1, batchsize]))
+    batchslice2 = cm.CUDAMatrix(np.zeros([1, batchsize]))
+    datasize_squared = cm.CUDAMatrix(np.zeros([batchsize, batchsize]))
+    datasize_eye = cm.CUDAMatrix(np.eye(batchsize))
+    datasize_eye2 = cm.CUDAMatrix(np.eye(batchsize))
+
+    if hidden_layer:
+        hidden_bias = hidden_layer.params['bias']
+        bedge = next(e for e in model.edge if e.node1.name == 'input_layer' \
+                and e.node2.name == 'bernoulli_hidden1')
+        w = bedge.params['weight']
+    
+    if 'bias' in input_layer.params:
+        input_bias = input_layer.params['bias']
+
+    if gaussian_layer:
+        gedge = next(e for e in model.edge if e.node1.name == 'input_layer' \
+                and e.node2.name == 'gaussian_hidden1')
+        gw = gedge.params['weight']
+        input_diag = input_layer.params['diag']
+        diag_val = input_diag.sum() / (input_layer.dimensions  * input_layer.numlabels)
+
+
+
+
+    # RUN Imputation Error
+    for dim_idx in range(dimensions):
+
+        #-------------------------------------------
+        # Set state of input variables 
+        input_layer.GetData()
+        dim_offset = dim_idx * numlabels
+
+        for label_idx in range(numlabels):
+
+            batchslice.assign(batchzeroslice)
+
+            #Assign state value
+            label_offset = dim_idx * numlabels + label_idx
+            input_layer.state.set_row_slice(dim_offset, dim_offset + numlabels, \
+                    zeroslice)
+            input_layer.state.set_row_slice(label_offset, label_offset+1, onesrow)
+
+            if hidden_layer:
+                # Add the contributions from bernoulli hidden layer
+                cm.dot(w.T, input_layer.state, target=hidden_layer.state)
+                hidden_layer.state.add_col_vec(hidden_bias)
+                cm.log_1_plus_exp(hidden_layer.state)
+                hidden_layer.state.sum(axis=0, target=batchslice)
+
+            if 'bias' in input_layer.params:
+                cm.dot(input_bias.T, input_layer.state, target=batchslice2)
+                batchslice.add_row_vec(batchslice2)
+
+            if gaussian_layer:
+                # Add contributions from gaussian hidden layer
+                cm.dot(gw.T, input_layer.state, target=gaussian_layer.state)
+                cm.dot(gaussian_layer.state.T, gaussian_layer.state, target= datasize_squared)
+                datasize_squared.mult(datasize_eye, target=datasize_eye2)
+                datasize_eye2.sum(axis=0, target=batchslice2)
+
+                # Add constants from gaussian hidden layer
+                integration_constant = gaussian_layer.dimensions * np.log(2*np.pi)
+                integration_constant += input_layer.dimensions * diag_val 
+                batchslice2.add(integration_constant)
+                batchslice2.mult(0.5)
+                batchslice.add_row_vec(batchslice2)
+            
+            input_layer.foo.set_row_slice(label_offset, label_offset+1, batchslice)
+ 
+    # Apply softmax on log Z_v as energies
+    input_layer.foo.reshape((numlabels, dimensions * batchsize))        
+    input_layer.foo.apply_softmax()
+
+    data.reshape((1, dimensions * batchsize))
+    # Calculate Imputation Error
+    input_layer.batchsize_temp.reshape((1, dimensions * batchsize))
+    input_layer.foo.get_softmax_correct(data, target=input_layer.batchsize_temp)
+    input_layer.batchsize_temp.reshape((dimensions, batchsize))
+    imperr_cpu = (dimensions - input_layer.batchsize_temp.sum(axis=0).asarray() )/ (0. + dimensions)
+
+    # Calculate Pseudo ll
+    input_layer.batchsize_temp.reshape((1, dimensions *  batchsize))
+    input_layer.foo.get_softmax_cross_entropy(data, target=input_layer.batchsize_temp, \
+            tiny=input_layer.tiny)
+    input_layer.batchsize_temp.reshape((dimensions, batchsize))
+    pll_cpu = - input_layer.batchsize_temp.sum(axis=0).asarray() 
+
+    # Undo rehapes
+    input_layer.foo.reshape((numlabels * dimensions, batchsize))
+    data.reshape((dimensions, batchsize))
+
+    zeroslice.free_device_memory()
+    onesrow.free_device_memory()
+    batchslice.free_device_memory()
+
+    return pll_cpu, imperr_cpu
+
 def impute_rbm_exact(model):
     """ run exact exact pll and imputation error on an rbm """
 
@@ -246,9 +367,10 @@ if __name__ == '__main__':
     parser = ArgumentParser(description="Run AIS")
     parser.add_argument("--model_file", type=str)
     parser.add_argument("--train_file", type=str)
-    parser.add_argument("--infer-method", type=str, default='exact', help='mf/gibbs/exact')
-    parser.add_argument("--mf-steps", type=int, default=2)
-    parser.add_argument("--hidden-mf-steps", type=int, default=2)
+    parser.add_argument("--infer-method", type=str, default='exact', \
+            help='mf/gibbs/exact/gaussian_exact')
+    parser.add_argument("--mf-steps", type=int, default=1)
+    parser.add_argument("--hidden-mf-steps", type=int, default=1)
     parser.add_argument("--outf", type=str, help='Output File')
     args = parser.parse_args()
 
@@ -305,6 +427,8 @@ if __name__ == '__main__':
                 pll, imperr = impute_mf(model, args.mf_steps, args.hidden_mf_steps)
             elif args.infer_method == 'exact':
                 pll, imperr = impute_rbm_exact(model)
+            elif args.infer_method == 'gaussian_exact':
+                pll, imperr = impute_rbm_gaussian_exact(model)
             else:
                 raise ValueError("Unknown infer method")
 
