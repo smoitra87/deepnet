@@ -161,6 +161,23 @@ class DeepnetHelper(object):
         """ Run an experiment on tesla"""
         self._run_exp()
 
+    def deepnet_run_impute(self):
+        """ Run imputation error jobs """
+        self._run_impute()
+
+    def _run_impute(self):
+        expid = next(e for e in expalloc.name_to_exp[self.aws_helper.ip_to_name[env.host]])
+        run('hostname')
+        print 'Expid', expid, exp_args
+        with cd("deepnet/deepnet"):
+            run("python impute_jobwriter_intermediate.py --expid {}".format(expid))
+            run("chmod +x impute_run.sh")
+            # expid is passed to impute_run.sh as dummy. Don't remove
+            # it downstream code needs it
+            processid = self._exec_bg_cmd("./impute_run.sh {}".format(expid))
+            link = self._build_dnslink(relpath)
+            self._table_insert_jobs(processid, exp_args, link)
+
     def _run_exp(self):
         
         expid = next(e for e in expalloc.name_to_exp[self.aws_helper.ip_to_name[env.host]])
