@@ -137,7 +137,7 @@ class DeepnetHelper(object):
             sys.stdout.stderr("No jobs to run for {}".format(self.aws_helper.ip_to_name[env.host]))        
 
         with cd("deepnet/deepnet/experiments"):
-            run("python generate_experiments.py expid {}".format(expid))
+            run("python generate_experiments_icml.py {}".format(expid))
 
 
     def aws_idle_run_exp(self, prefix):

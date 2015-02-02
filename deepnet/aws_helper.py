@@ -6,7 +6,7 @@ import os, sys
 import boto.ec2
 from awsutil import confirm
 
-DEFAULT_AMI ="ami-17104027" 
+DEFAULT_AMI ="ami-bdeeb68d" 
 DEFAULT_INSTANCE_TYPE = "g2.2xlarge"
 DEFAULT_KEY_NAME = "Subho"
 DEFAULT_SECURITY_GROUP ="launch-wizard-4" 
