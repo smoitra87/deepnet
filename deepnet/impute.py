@@ -387,7 +387,9 @@ if __name__ == '__main__':
 
     # Fix paths
     dirname = os.path.split(model.t_op.data_proto_prefix)[1]
-    model.t_op.data_proto_prefix = os.path.join('/storage/data1/dbm/deepnet/deepnet/datasets/',\
+    import awsutil
+    deepnet_path = awsutil.get_deepnet_path()
+    model.t_op.data_proto_prefix = os.path.join(deepnet_path, 'datasets/',\
             dirname)
     model.t_op.skip_last_piece = False
     model.t_op.get_last_piece = True

@@ -168,15 +168,15 @@ class DeepnetHelper(object):
     def _run_impute(self):
         expid = next(e for e in expalloc.name_to_exp[self.aws_helper.ip_to_name[env.host]])
         run('hostname')
-        print 'Expid', expid, exp_args
+        print 'Expid', expid
         with cd("deepnet/deepnet"):
             run("python impute_jobwriter_intermediate.py --expid {}".format(expid))
             run("chmod +x impute_run.sh")
             # expid is passed to impute_run.sh as dummy. Don't remove
             # it downstream code needs it
-            processid = self._exec_bg_cmd("./impute_run.sh {}".format(expid))
-            link = self._build_dnslink(relpath)
-            self._table_insert_jobs(processid, exp_args, link)
+            processid = self._exec_bg_cmd("./impute_run.sh")
+            link = self._build_dnslink("deepnet/deepnet")
+            self._table_insert_jobs(processid, "{} ./impute_run.sh".format(expid), link)
 
     def _run_exp(self):
         
