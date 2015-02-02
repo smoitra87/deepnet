@@ -90,6 +90,10 @@ class Edge(Parameter):
       if t_op and (t_op.optimizer == deepnet_pb2.Operation.PCD or \
         t_op.optimizer == deepnet_pb2.Operation.CD):
         self.suff_stats = cm.CUDAMatrix(np.zeros(edge_shape))
+     
+      weight_proto = next(p for p in self.proto.param if p.name == 'weight')
+      if weight_proto.apply_sparsity_mask:
+          self.sparsity_mask = cm.CUDAMatrix(np.load(weight_proto.sparsity_mask))
 
   def AllocateMemoryForConvolutions(self, param, node1, node2):
     self.conv = param.conv

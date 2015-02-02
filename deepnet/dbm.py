@@ -236,8 +236,14 @@ class DBM(NeuralNet):
         node.CollectSufficientStatistics(neg=True)
         self.UpdateLayerParams(node, step=step)
       for edge in self.edge:
-        edge.CollectSufficientStatistics(neg=True)
-        self.UpdateEdgeParams(edge, step=step)
+        weight_proto = next(p for p in edge.proto.param if p.name == 'weight')
+        if weight_proto.update_this:
+            edge.CollectSufficientStatistics(neg=True)
+            self.UpdateEdgeParams(edge, step=step)
+
+            if weight_proto.apply_sparsity_mask:
+                weight = edge.params['weight']
+                weight.mult(edge.sparsity_mask)
 
     if not self.cd:
       for node in self.layer:

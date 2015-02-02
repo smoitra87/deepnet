@@ -83,7 +83,10 @@ message Parameter {
   optional bool transpose_pretrained = 12 [default=false];
   optional string pretrained_model_param_name = 13;
   optional bool local = 14 [default=false];
-  optional float mult_factor = 15[default=1.0];
+  optional float mult_factor = 15 [default=1.0];
+  optional bool update_this = 16 [default=true];
+  optional bool apply_sparsity_mask = 17 [default=false];
+  optional string sparsity_mask = 18;
 }
 
 message Hyperparams {
