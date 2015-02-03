@@ -20,8 +20,9 @@ def get_next_expid(dir="./"):
 params = { 
     '--base_epsilon' : ['0.1'],
     '--l2_decay': ['0.01'],
-    '--model' : ['rbm', 'warmrbm', 'warmlcrbm'],
-    '--hidden1_width' : ['1449']
+    '--model' : ['warmslcrbm'],
+    '--hidden1_width' : ['1449'],
+    '--bernoulli2_hidden1_width' : ['1', '10', '50', '100', '500', '1000']
 }
 
 def write_expalloc(exp_to_args, name_to_exp):
@@ -46,6 +47,7 @@ append_to_list("--l2_decay", param_list)
 append_to_list("--base_epsilon", param_list)
 append_to_list("--model", param_list)
 append_to_list("--hidden1_width", param_list)
+append_to_list("--bernoulli2_hidden1_width", param_list)
 param_list.append(['--data_dir datasets/PF00240 --input_width 69 --batchsize 200'])
 
 if __name__ == '__main__':
@@ -71,10 +73,10 @@ if __name__ == '__main__':
 
     tuplist = list(product(*param_list))
 
-    # Shuffle the tuplist
-    import random
-    random.seed(42)
-    random.shuffle(tuplist)
+#    # Shuffle the tuplist
+#    import random
+#    random.seed(42)
+#    random.shuffle(tuplist)
 
     for idx, tup in list(enumerate(tuplist)):
         expid ='exp'+str(idx + parse_args.start_exp_id) 

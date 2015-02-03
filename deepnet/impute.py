@@ -52,6 +52,7 @@ def impute_rbm_gaussian_exact(model):
     batchsize = model.batchsize
     input_layer = model.GetLayerByName('input_layer') 
     hidden_layer = model.GetLayerByName('bernoulli_hidden1') 
+    bern2_hidden_layer = model.GetLayerByName('bernoulli2_hidden1') 
     gaussian_layer = model.GetLayerByName('gaussian_hidden1') 
 
     # Get input layer features
@@ -80,6 +81,12 @@ def impute_rbm_gaussian_exact(model):
         bedge = next(e for e in model.edge if e.node1.name == 'input_layer' \
                 and e.node2.name == 'bernoulli_hidden1')
         w = bedge.params['weight']
+
+    if bern2_hidden_layer:
+        bern2_hidden_bias = bern2_hidden_layer.params['bias']
+        bedge2 = next(e for e in model.edge if e.node1.name == 'input_layer' \
+                and e.node2.name == 'bernoulli2_hidden1')
+        w2 = bedge2.params['weight']
     
     if 'bias' in input_layer.params:
         input_bias = input_layer.params['bias']
@@ -118,6 +125,13 @@ def impute_rbm_gaussian_exact(model):
                 hidden_layer.state.add_col_vec(hidden_bias)
                 cm.log_1_plus_exp(hidden_layer.state)
                 hidden_layer.state.sum(axis=0, target=batchslice)
+
+            if bern2_hidden_layer:
+                # Add the contributions from bernoulli hidden layer
+                cm.dot(w2.T, input_layer.state, target=bern2_hidden_layer.state)
+                bern2_hidden_layer.state.add_col_vec(bern2_hidden_bias)
+                cm.log_1_plus_exp(bern2_hidden_layer.state)
+                batchslice.add_sums(bern2_hidden_layer.state, axis=0)
 
             if 'bias' in input_layer.params:
                 cm.dot(input_bias.T, input_layer.state, target=batchslice2)

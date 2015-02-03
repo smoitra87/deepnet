@@ -66,6 +66,11 @@ def EditModels(args):
      elif args.model in ('warmrbm', 'warmlcrbm'):
          if layer.name == 'bernoulli_hidden1':
              layer.dimensions = args.input_width * 21
+     elif args.model in ('warmslcrbm'):
+         if layer.name == 'bernoulli_hidden1':
+             layer.dimensions = args.input_width * 21
+         if layer.name == 'bernoulli2_hidden1':
+             layer.dimensions = args.bernoulli2_hidden1_width
      elif args.model in ('slcrbm', 'srbm'):
          if layer.name  == 'bernoulli_hidden1': 
              layer.dimensions = args.hidden1_width
@@ -87,7 +92,7 @@ def EditModels(args):
      pretrained_model_file = param.pretrained_model[0]
      param.pretrained_model[0] = os.path.join(args.data_dir, pretrained_model_file)
 
-  if args.model in ('warmrbm', 'warmlcrbm'):
+  if args.model in ('warmrbm', 'warmlcrbm', 'warmslcrbm'):
      edge = next(e for e in model.edge if e.node1 == 'input_layer' and \
              e.node2 == 'bernoulli_hidden1')
      param = next(p for p in edge.param if p.name == 'weight')
@@ -106,7 +111,7 @@ def EditModels(args):
      sparsity_mask_file = param.sparsity_mask
      param.sparsity_mask = os.path.join(args.data_dir, sparsity_mask_file)
 
-  if args.model in ['warmlcrbm']:
+  if args.model in ['warmlcrbm', 'warmslcrbm']:
      edge = next(e for e in model.edge if e.node1 == 'input_layer' and \
              e.node2 == 'bernoulli_hidden1')
      param = next(p for p in edge.param if p.name == 'weight')
@@ -140,6 +145,8 @@ def main():
   parser.add_argument("--input_numlabels", type=int, default=21,\
           help="number of states for nodes in input_layer")
   parser.add_argument("--hidden1_width", type=int, default=100, \
+          help="number of nodes in hidden layer")
+  parser.add_argument("--bernoulli2_hidden1_width", type=int, default=10, \
           help="number of nodes in hidden layer")
   parser.add_argument("--batchsize", type=int, default=1000, help="batchsize")
 
