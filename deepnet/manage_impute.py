@@ -19,12 +19,12 @@ name_to_exp = {1}
 
 
 def complete_exps():
-    return [os.path.basename(exp) for exp in glob.glob("results/exp*")]
+    return [os.path.basename(exp) for exp in glob.glob("results/impute/exp*")]
 
 
 def exec_get_folder(tup):
     hostname, exp = tup
-    os.system("fab choose_get_folder:hostname={0},local_path=results/,remote_path=deepnet/deepnet/experiments/{1}".format(hostname, exp))
+    os.system("fab choose_get_folder:hostname={0},local_path=results/impute,remote_path=deepnet/deepnet/experiments/likelihoods/{1}".format(hostname, exp))
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -51,9 +51,9 @@ if __name__ == '__main__':
             cmds = [job[5] for job in jobs]
             exps = []
             for cmd in cmds :
-                exp = re.findall('/exp\d+/',cmd)
+                exp = re.findall('exp\d+',cmd)
                 if not exp : continue
-                exps.append(exp[0][1:-1])
+                exps.append(exp[0])
             exps = list(set(e for e in exps))
 
         exps_to_pull = set(exps).difference(complete_exps())

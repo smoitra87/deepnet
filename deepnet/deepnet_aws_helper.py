@@ -152,6 +152,15 @@ class DeepnetHelper(object):
             self._run_exp()
 
 
+    def aws_idle_run_impute(self, prefix):
+        """ Runs jobs on idle hosts """
+        idle_hosts = self._get_all_idle(prefix=prefix)
+        for host in idle_hosts:
+            print "Host=", host
+            host_string = self.aws_helper.name_to_ip[host]
+            env.host_string = host_string
+            env.host = host_string
+            self._run_impute()
 
     def deepnet_run_exp(self):
         """ Run an experiment on deepnet"""
@@ -166,7 +175,12 @@ class DeepnetHelper(object):
         self._run_impute()
 
     def _run_impute(self):
-        expid = next(e for e in expalloc.name_to_exp[self.aws_helper.ip_to_name[env.host]])
+        try:
+            expid = next(e for e in expalloc.name_to_exp[self.aws_helper.ip_to_name[env.host]])
+        except StopIteration:
+            print "No jobs run for {}".format(self.aws_helper.ip_to_name[env.host])
+            return
+
         run('hostname')
         print 'Expid', expid
         with cd("deepnet/deepnet"):
