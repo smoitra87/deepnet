@@ -63,6 +63,9 @@ def EditModels(args):
      elif args.model in ('lcrbm', 'ghrbm'):
          if layer.name == 'gaussian_hidden1':
              layer.dimensions = args.input_width * 21
+     elif args.model in ('warmrbm', 'warmlcrbm'):
+         if layer.name == 'bernoulli_hidden1':
+             layer.dimensions = args.input_width * 21
      elif args.model in ('slcrbm', 'srbm'):
          if layer.name  == 'bernoulli_hidden1': 
              layer.dimensions = args.hidden1_width
@@ -72,24 +75,43 @@ def EditModels(args):
          raise ValueError('Unknown model {}'.format(args.model))
 
      # Add in the datafiles
-     if args.model in ('lcrbm', 'ghrbm', 'slcrbm', 'srbm'):
-         edge = next(e for e in model.edge if e.node1 == 'input_layer' and \
-                 e.node2 == 'gaussian_hidden1')
-         param = next(p for p in edge.param if p.name == 'weight')
-         pretrained_model_file = param.pretrained_model[0]
-         param.pretrained_model[0] = os.path.join(args.data_dir, pretrained_model_file)
+  if args.model in ('lcrbm', 'ghrbm', 'slcrbm', 'srbm'):
+     edge = next(e for e in model.edge if e.node1 == 'input_layer' and \
+             e.node2 == 'gaussian_hidden1')
+     param = next(p for p in edge.param if p.name == 'weight')
+     pretrained_model_file = param.pretrained_model[0]
+     param.pretrained_model[0] = os.path.join(args.data_dir, pretrained_model_file)
 
-         layer = next(l for l in model.layer if l.name == 'input_layer')
-         param = next(p for p in layer.param if p.name == 'diag')
-         pretrained_model_file = param.pretrained_model[0]
-         param.pretrained_model[0] = os.path.join(args.data_dir, pretrained_model_file)
+     layer = next(l for l in model.layer if l.name == 'input_layer')
+     param = next(p for p in layer.param if p.name == 'diag')
+     pretrained_model_file = param.pretrained_model[0]
+     param.pretrained_model[0] = os.path.join(args.data_dir, pretrained_model_file)
 
-     if args.model in ('lcrbm', 'slcrbm'):
-         edge = next(e for e in model.edge if e.node1 == 'input_layer' and \
-                 e.node2 == 'gaussian_hidden1')
-         param = next(p for p in edge.param if p.name == 'weight')
-         sparsity_mask_file = param.sparsity_mask
-         param.sparsity_mask = os.path.join(args.data_dir, sparsity_mask_file)
+  if args.model in ('warmrbm', 'warmlcrbm'):
+     edge = next(e for e in model.edge if e.node1 == 'input_layer' and \
+             e.node2 == 'bernoulli_hidden1')
+     param = next(p for p in edge.param if p.name == 'weight')
+     pretrained_model_file = param.pretrained_model[0]
+     param.pretrained_model[0] = os.path.join(args.data_dir, pretrained_model_file)
+
+     layer = next(l for l in model.layer if l.name == 'input_layer')
+     param = next(p for p in layer.param if p.name == 'diag')
+     pretrained_model_file = param.pretrained_model[0]
+     param.pretrained_model[0] = os.path.join(args.data_dir, pretrained_model_file)
+
+  if args.model in ('lcrbm', 'slcrbm'):
+     edge = next(e for e in model.edge if e.node1 == 'input_layer' and \
+             e.node2 == 'gaussian_hidden1')
+     param = next(p for p in edge.param if p.name == 'weight')
+     sparsity_mask_file = param.sparsity_mask
+     param.sparsity_mask = os.path.join(args.data_dir, sparsity_mask_file)
+
+  if args.model in ['warmlcrbm']:
+     edge = next(e for e in model.edge if e.node1 == 'input_layer' and \
+             e.node2 == 'bernoulli_hidden1')
+     param = next(p for p in edge.param if p.name == 'weight')
+     sparsity_mask_file = param.sparsity_mask
+     param.sparsity_mask = os.path.join(args.data_dir, sparsity_mask_file)
 
 
   with open(model_file, 'w') as f:
