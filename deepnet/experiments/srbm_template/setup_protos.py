@@ -25,6 +25,10 @@ def EditTrainers(args):
       t_op.data_proto_prefix = args.rep_dir
     t_op.checkpoint_directory = args.model_dir
     t_op.batchsize = args.batchsize
+
+    if args.steps : 
+        t_op.stopcondition.steps = args.steps
+
     with open(t_op_file, 'w') as f:
       text_format.PrintMessage(t_op, f)
 
@@ -149,6 +153,7 @@ def main():
   parser.add_argument("--bernoulli2_hidden1_width", type=int, default=10, \
           help="number of nodes in hidden layer")
   parser.add_argument("--batchsize", type=int, default=1000, help="batchsize")
+  parser.add_argument("--steps", type=int, default=100000, help="training steps")
 
   args = parser.parse_args()
 
