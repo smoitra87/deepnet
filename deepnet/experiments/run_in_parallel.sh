@@ -1,5 +1,5 @@
 #!/bin/sh
 
-( cd exp4000 ; ./runall.sh ; cd ..  ;  cd exp4002 ; ./runall.sh ; cd .. ) & 
+( cd .. ; experiments/impute_run_exp4000.sh ; cd ..  ;  cd .. ; experiments/impute_run_exp4002.sh ; cd .. ) & 
 
-( cd exp4001 ; ./runall.sh ; cd ..  ;  cd exp4003 ; ./runall.sh ; cd .. ) & 
+( cd .. ; experiments/impute_run_exp4001.sh ; cd ..  ;  cd .. ; experiments/impute_run_exp4003.sh ; cd .. ) & 

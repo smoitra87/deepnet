@@ -20,9 +20,9 @@ def get_next_expid(dir="./"):
 params = { 
     '--base_epsilon' : ['0.1'],
     '--l2_decay': ['0.01'],
-    '--model' : ['warmslcrbm'],
-    '--hidden1_width' : ['1449'],
-    '--bernoulli2_hidden1_width' : ['10', '50', '100', '500'],
+    '--model' : ['rbm','warmlcrbm'],
+    '--hidden1_width' : ['50','100','500','1000','1449'],
+    '--bernoulli2_hidden1_width' : ['10'],
     '--steps' : ['100000'],
     '--batchsize' : ['500'],
     '--input_width': ['69'],
