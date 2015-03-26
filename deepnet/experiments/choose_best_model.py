@@ -1,0 +1,39 @@
+import os, sys
+import glob
+import pickle
+
+if __name__ == '__main__':
+    from argparse import ArgumentParser
+    parser = ArgumentParser()
+    parser.add_argument("--impute_dir", type=str, help="Imputation error dir")
+    parser.add_argument("--model_dir", type=str, help="Location models")
+    parser.add_argument("--output_dir", type=str, help="Location Output")
+    args = parser.parse_args()
+
+    model_pll_files = glob.glob(os.path.join(args.impute_dir,'*.pkl'))
+
+    min_imperr = 1
+    min_f = None
+
+    for f in model_pll_files:
+        with open(f) as fin:
+            pll = pickle.load(fin)
+        
+        imperr_f =  pll['imperr']['valid'].mean() 
+        
+        if imperr_f < min_imperr:
+            min_imperr, min_f = imperr_f, f
+        
+    # HACKY
+    model_name = "_".join(os.path.basename(f).split('_')[1:3])
+    model_prefix = "_".join(os.path.basename(f).split('_')[1:2])
+    
+    from_f = os.path.join(args.model_dir,model_name)
+    to_f = os.path.join(args.output_dir, model_prefix+'_imperr_BEST')
+
+    os.system("cp {0} {1}".format(from_f, to_f))
+    
+
+
+
+

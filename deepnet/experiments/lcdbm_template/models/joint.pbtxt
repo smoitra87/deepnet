@@ -51,7 +51,7 @@ layer {
   }
 }
 layer {
-  name: "bernoulli_hidden2"
+  name: "hidden2"
   dimensions: 100
   param {
     name: "bias"
@@ -73,11 +73,14 @@ edge {
     name: "weight"
     initialization: PRETRAINED
     pretrained_model: "rbm1_imperr_BEST"
+    update_this: true
+    sparsity_mask: "mask_edge_input_to_gaussian.npy"
+    apply_sparsity_mask: true
   }
 }
 edge {
   node1: "bernoulli_hidden1"
-  node2: "bernoulli_hidden2"
+  node2: "hidden2"
   directed: false
   param {
     name: "weight"

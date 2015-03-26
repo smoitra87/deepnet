@@ -13,9 +13,9 @@ layer {
     apply_l2_decay: false
   }
   data_field {
-    train: "hidden1_train"
-    validation: "hidden1_validation"
-    test: "hidden1_test"
+    train: "bernoulli_hidden1_train"
+    validation: "bernoulli_hidden1_validation"
+    test: "bernoulli_hidden1_test"
   }
   performance_stats {
     compute_error: true
@@ -23,7 +23,7 @@ layer {
   }
 }
 layer {
-  name: "bernoulli_hidden2"
+  name: "hidden2"
   dimensions: 100
   param {
     name: "bias"
@@ -38,7 +38,7 @@ layer {
 }
 edge {
   node1: "bernoulli_hidden1"
-  node2: "bernoulli_hidden2"
+  node2: "hidden2"
   directed: false
   param {
     name: "weight"

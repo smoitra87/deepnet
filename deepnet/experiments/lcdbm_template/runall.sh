@@ -34,7 +34,7 @@ mkdir -p ${data_output_dir}
 if ${clobber} || [ ! -e ${data_output_dir}/rbm1_BEST/data.pbtxt ]; then
   echo "Extracting first layer Representation."
   python ${extract_rep} ${model_output_dir}/rbm1_imperr_BEST \
-    trainers/train_CD_rbm1.pbtxt hidden1 \
+    trainers/train_CD_rbm1.pbtxt bernoulli_hidden1 \
     ${data_output_dir}/rbm1_BEST ${gpu_mem} ${main_mem} || exit 1
 fi
 

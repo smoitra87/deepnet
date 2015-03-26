@@ -8,18 +8,23 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("--expid", type=str, nargs='+',  help='experiment id')
     parser.add_argument("--outputf", type=str, help='job file')
+    parser.add_argument("--model_prefix", type=str, help='model prefix')
     parser.add_argument("--skip", type=int, default=1,  help="Skip these many files")
+    parser.add_argument("--mf_steps", type=int, default=1)
     parser.add_argument("--infer_method", type=str, default="gaussian_exact", \
             help = "Inference method for imputation error")
     args = parser.parse_args()
+
+    regex = '{}_\d+'.format(args.model_prefix)
 
     jobf = args.outputf if args.outputf else "impute_run.sh"
     with open(jobf, 'w') as fout:
         for expid in args.expid:
 
+            
             models = glob.glob('experiments/{}/dbm_models/*'.format(expid))
-            models = [re.findall('rbm1_\d+',m)[0] for m in models \
-                    if re.findall('rbm1_\d+',m)]
+            models = [re.findall(regex,m)[0] for m in models \
+                    if re.findall(regex,m)]
             model_tups = [(int("".join(re.findall('\d+',m))), m) for \
                     m in models]
 
@@ -38,11 +43,10 @@ if __name__ == '__main__':
                 cmd = 'python impute.py  ' +\
                  '--model_file {}'.format(model) +\
                  ' --train_file  experiments/{}/trainers/train_CD_rbm1.pbtxt '.format(expid) +\
-                 '--outf experiments/likelihoods/{0}/{0}_{1}_pll.pkl --infer-method {2}'.format(\
+                 " --mf-steps {}".format(args.mf_steps) +\
+                 ' --outf experiments/likelihoods/{0}/{0}_{1}_pll.pkl --infer-method {2}'.format(\
                  expid, model_file, args.infer_method)
                 print >>fout, cmd
                 print >>fout
                 print >>fout, "sleep 5"
                 print >>fout
-
-            

@@ -129,6 +129,63 @@ def EditModels(args):
   with open(model_file, 'w') as f:
     text_format.PrintMessage(model, f)
  
+def EditModelsDBM(args):
+  """ DBM specific only """
+
+  if args.model not in ['dbm', 'lcdbm']:
+     raise ValueError('Unknown model {}'.format(args.model))
+
+  # Common changes in all models
+  model_files = glob.glob("models/*.pbtxt") 
+  for model_file in model_files:
+     model = util.ReadModel(model_file)
+     model.hyperparams.base_epsilon = args.base_epsilon
+     model.hyperparams.sparsity = args.sparsity 
+     model.hyperparams.dropout = args.dropout
+     model.hyperparams.l2_decay = args.l2_decay
+     model.hyperparams.initial_momentum = args.initial_momentum
+     model.hyperparams.final_momentum = args.final_momentum
+     with open(model_file, 'w') as f:
+        text_format.PrintMessage(model, f)
+
+
+  # Specific changes to rbm2
+  model_file = os.path.join('models', 'rbm2.pbtxt')
+  model = util.ReadModel(model_file)
+  for layer in model.layer:
+     if layer.name == 'hidden1' or layer.name == 'bernoulli_hidden1' : 
+         layer.dimensions = args.hidden1_width
+     if layer.name == 'hidden2': 
+         layer.dimensions = args.hidden2_width
+  with open(model_file, 'w') as f:
+     text_format.PrintMessage(model, f)
+
+  # Specific changes to joint
+  model_file = os.path.join('models', 'joint.pbtxt')
+  model = util.ReadModel(model_file)
+  model.prefix = args.model_dir
+  for layer in model.layer:
+     if layer.name == 'input_layer': 
+         layer.dimensions = args.input_width 
+         layer.numlabels = args.input_numlabels
+     if layer.name == 'bernoulli_hidden1' or layer.name == 'hidden1':
+         layer.dimensions = args.hidden1_width
+     if layer.name == 'hidden2':
+         layer.dimensions = args.hidden2_width
+
+  # Sparsity mask  
+  if args.model in ['lcdbm']:
+     edge = next(e for e in model.edge if e.node1 == 'input_layer' and \
+             e.node2 == 'bernoulli_hidden1')
+     param = next(p for p in edge.param if p.name == 'weight')
+     sparsity_mask_file = param.sparsity_mask
+     param.sparsity_mask = os.path.join(args.data_dir, sparsity_mask_file)
+
+  with open(model_file, 'w') as f:
+    text_format.PrintMessage(model, f)
+
+
+
 def main():
   from argparse import ArgumentParser
   parser = ArgumentParser()
@@ -149,6 +206,8 @@ def main():
   parser.add_argument("--input_numlabels", type=int, default=21,\
           help="number of states for nodes in input_layer")
   parser.add_argument("--hidden1_width", type=int, default=100, \
+          help="number of nodes in hidden layer")
+  parser.add_argument("--hidden2_width", type=int, default=100, \
           help="number of nodes in hidden layer")
   parser.add_argument("--bernoulli2_hidden1_width", type=int, default=10, \
           help="number of nodes in hidden layer")
@@ -172,7 +231,11 @@ def main():
   with open(data_pbtxt_file, 'w') as f:
     text_format.PrintMessage(data_pb, f)
   EditTrainers(args) 
-  EditModels(args)
+
+  if args.model in ['lcdbm','dbm']:
+      EditModelsDBM(args)
+  else:
+      EditModels(args)
 
 if __name__ == '__main__':
   main()
