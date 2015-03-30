@@ -25,8 +25,8 @@ if __name__ == '__main__':
             min_imperr, min_f = imperr_f, f
         
     # HACKY
-    model_name = "_".join(os.path.basename(f).split('_')[1:3])
-    model_prefix = "_".join(os.path.basename(f).split('_')[1:2])
+    model_name = "_".join(os.path.basename(min_f).split('_')[1:3])
+    model_prefix = "_".join(os.path.basename(min_f).split('_')[1:2])
     
     from_f = os.path.join(args.model_dir,model_name)
     to_f = os.path.join(args.output_dir, model_prefix+'_imperr_BEST')

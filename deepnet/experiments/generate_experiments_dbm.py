@@ -20,7 +20,7 @@ def get_next_expid(dir="./"):
 params = { 
     '--base_epsilon' : ['0.1'],
     '--l2_decay': ['0.01'],
-    '--model' : ['lcdbm'],
+    '--model' : ['dbm'],
     '--hidden1_width' : ['1449'],
     '--hidden2_width' : ['10', '50', '100'],
     '--steps' : ['100000'],
