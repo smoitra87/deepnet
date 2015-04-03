@@ -1,7 +1,7 @@
 #!/bin/sh
 
-( cd exp7002 ; ./runall.sh ; cd .. ) & 
+( cd exp11001 ; ./runall.sh ; cd ..  ;  cd exp11004 ; ./runall.sh ; cd .. ) & 
 
-( cd exp7000 ; ./runall.sh ; cd .. ) & 
+( cd exp11002 ; ./runall.sh ; cd .. ) & 
 
-( cd exp7001 ; ./runall.sh ; cd .. ) & 
+( cd exp11000 ; ./runall.sh ; cd ..  ;  cd exp11003 ; ./runall.sh ; cd .. ) & 

@@ -11,8 +11,9 @@ if __name__ == '__main__':
     parser.add_argument("--model_prefix", type=str, help='model prefix')
     parser.add_argument("--skip", type=int, default=1,  help="Skip these many files")
     parser.add_argument("--mf_steps", type=int, default=1)
+    parser.add_argument("--run_script_name", type=str,  help="Name of run script",\
+            default="run_in_parallel.sh")
     args = parser.parse_args()
-
 
     job_q = [[] for _ in range(args.nparallel)]
     for idx in range(args.start_expid, args.end_expid+1):
@@ -24,7 +25,7 @@ if __name__ == '__main__':
                 " --model_prefix {}".format(args.model_prefix))
         os.system("chmod +x experiments/impute_run_exp{}.sh".format(idx))
 
-    with open('run_in_parallel.sh','w') as fout:
+    with open(args.run_script_name, 'w') as fout:
         print >>fout, "#!/bin/sh"
         for qidx in range(args.nparallel):
             print >>fout
@@ -32,4 +33,4 @@ if __name__ == '__main__':
                     ' experiments/impute_run_{}.sh '.format(expidx) \
                     for expidx in job_q[qidx]]) + ") & ";
 
-    os.system('chmod +x run_in_parallel.sh')
+    os.system('chmod +x {}'.format(args.run_script_name))

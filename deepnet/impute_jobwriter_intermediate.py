@@ -15,7 +15,13 @@ if __name__ == '__main__':
             help = "Inference method for imputation error")
     args = parser.parse_args()
 
+    if not args.model_prefix:
+        raise ValueError('--model_prefix not specified')
+        
+
     regex = '{}_\d+'.format(args.model_prefix)
+    
+
 
     jobf = args.outputf if args.outputf else "impute_run.sh"
     with open(jobf, 'w') as fout:
@@ -34,6 +40,8 @@ if __name__ == '__main__':
             models = map(itemgetter(1), model_tups)
             models = ['experiments/{0}/dbm_models/{1}'.format(expid,m)\
                     for m in models]
+
+            print 'Found {} models for {}'.format(len(models), expid)
 
             if not os.path.exists('experiments/likelihoods/{}'.format(expid)):
                 os.system('mkdir -p experiments/likelihoods/{}'.format(expid))
