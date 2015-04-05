@@ -48,12 +48,11 @@ def AIS_DBM(model, schedule, clamp_input):
     batchsize = model.batchsize
     w_ais = cm.CUDAMatrix(np.zeros((1, batchsize)))
 
-    is_rbm = len(model.layer) == 2
-
     input_layer = model.GetLayerByName('input_layer') 
-    h1_layer = model.GetLayerByName('hidden1') 
-    if not is_rbm:
-        h2_layer = model.GetLayerByName('hidden2') 
+    h1_layer = model.GetLayerByName('hidden1') or \
+            model.GetLayerByName('bernoulli_hidden1') 
+    h2_layer = model.GetLayerByName('hidden2') 
+    ssrbm_layer = model.GetLayerByName('bernoulli2_hidden1')
 
     # set up temp data structures
     for layer in model.layer:
@@ -76,8 +75,11 @@ def AIS_DBM(model, schedule, clamp_input):
             layer.Sample()
 
 
-    even_layers= [input_layer] if is_rbm else [input_layer, h2_layer]
+    even_layers= [input_layer] 
     odd_layers = [h1_layer]
+
+    if h2_layer : even_layers.append(h2_layer)
+    if ssrbm_layer : even_layers.append(ssrbm_layer)
 
     # RUN AIS.
     for step_idx in range(1, steps):
@@ -200,6 +202,7 @@ def AIS_Gaussian_RBM(model, schedule, clamp_input=False):
 
     input_layer = model.GetLayerByName('input_layer') 
     bernoulli_layer = model.GetLayerByName('bernoulli_hidden1') 
+    bernoulli_layer2 = model.GetLayerByName('bernoulli2_hidden1') 
     gaussian_layer = model.GetLayerByName('gaussian_hidden1') 
 
     for edge in model.edge:
@@ -237,10 +240,14 @@ def AIS_Gaussian_RBM(model, schedule, clamp_input=False):
             layer.ApplyActivation()
             layer.Sample()
 
+    sampling_layers = [input_layer]
+
     if bernoulli_layer:
-        sampling_layers = [input_layer, bernoulli_layer]
-    else:
-        sampling_layers = [input_layer]
+        sampling_layers.append(bernoulli_layer)
+
+
+    if bernoulli_layer2:
+        sampling_layers.append(bernoulli_layer2)
 
     # RUN AIS.
     for step_idx in range(1, steps):
@@ -324,7 +331,7 @@ def AIS_Gaussian_RBM(model, schedule, clamp_input=False):
 
 
             # Do the log(1+exp) operation if logistic
-            if layer is bernoulli_layer :
+            if layer is bernoulli_layer or layer is bernoulli_layer2 :
                 layer.state.mult(schedule[step_idx-1], target=layer.temp)
                 layer.state.mult(schedule[step_idx])
                 cm.log_1_plus_exp(layer.state, target=layer.deriv)
@@ -376,7 +383,7 @@ if __name__ == '__main__':
     parser.add_argument("--numchains_unclamped", type=int, default=1000)
     parser.add_argument("--schedule", type=str, default='quick', help='Select Schedule')
     parser.add_argument("--outf", type=str, help='Output File')
-    parser.add_argument("--is_rbm", action='store_true', help='RBM')
+    parser.add_argument("--is_ssrbm", action='store_true', help='ssrbm')
     args = parser.parse_args()
 
     if not args.outf : 
@@ -456,7 +463,7 @@ if __name__ == '__main__':
                     cpudata = np.tile(cpudata,(1, args.numchains))
                     layer.data = cm.CUDAMatrix(cpudata)
 
-            if args.is_rbm:
+            if args.is_ssrbm:
                 chains = AIS_Gaussian_RBM(model, schedule, clamp_input=True)
             else:
                 chains = AIS_DBM(model, schedule, clamp_input=True)
@@ -475,7 +482,7 @@ if __name__ == '__main__':
     #----------------------------------------------------------------------
     # log_z for unclamped model
     model.ResetBatchsize(args.numchains_unclamped)
-    if args.is_rbm:
+    if args.is_ssrbm:
         chains = AIS_Gaussian_RBM(model, schedule, clamp_input=False)
     else:
         chains = AIS_DBM(model, schedule, clamp_input=False)
