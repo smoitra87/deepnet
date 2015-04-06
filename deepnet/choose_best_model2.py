@@ -35,7 +35,7 @@ if __name__ == '__main__':
     model_prefix = "_".join(os.path.basename(min_f).split('_')[1:2])
     
     from_f = os.path.join(args.model_dir,model_name)
-    to_f = os.path.join(args.output_dir, model_prefix+'_imperr_BEST')
+    to_f = os.path.join(args.output_dir, model_name)
 
     print("cp {0} {1}".format(from_f, to_f))
     os.system("cp {0} {1}".format(from_f, to_f))
