@@ -1,0 +1,42 @@
+name: "mrf"
+model_type: DBM
+layer {
+  name: "input_layer"
+  dimensions: 69
+  numlabels: 21
+  is_input: true
+  hyperparams {
+    activation: SOFTMAX
+  }
+  data_field {
+    train: "train_data"
+    validation: "validation_data"
+    test: "test_data"
+  }
+  param {
+    name: "bias"
+    initialization: CONSTANT
+  }
+}
+layer {
+  name: "mirror_layer"
+  dimensions: 69
+  numlabels: 21
+  hyperparams {
+    activation: SOFTMAX
+  }
+  param {
+    name: "bias"
+    initialization: CONSTANT
+  }
+}
+edge {
+  node1: "input_layer"
+  node2: "mirror_layer"
+  directed: false
+  param {
+    name: "weight"
+    initialization: PRETRAINED
+    pretrained_model: "mrf_weights.npy"
+  }
+}
