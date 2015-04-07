@@ -10,6 +10,7 @@ if __name__ == '__main__':
     parser.add_argument("--nparallel", type=int,  help="Number of parallel runs")
     parser.add_argument("--run_script_name", type=str,  help="Name of run script",\
             default="run_in_parallel.sh")
+    parser.add_argument("--schedule", type=str,  help="Annealing schedule", default='slow')
     args = parser.parse_args()
 
     expids = []
@@ -35,7 +36,7 @@ if __name__ == '__main__':
                 train_pbtxt = 'train_CD_rbm1.pbtxt'
 
             cmd = "python ais.py {0} --train_file {1}/trainers/{2}".format(best_model, expid, train_pbtxt) 
-            cmd += " --numchains 1 --schedule quick --outf {0}".format(outf)
+            cmd += " --numchains 1 --schedule {0} --outf {1}".format(args.schedule,outf)
             print outf
             job_q[idx % args.nparallel].append(cmd)
             idx += 1
