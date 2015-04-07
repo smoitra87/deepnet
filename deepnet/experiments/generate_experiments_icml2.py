@@ -22,7 +22,7 @@ params = {
     '--l2_decay': ['0.01'],
     '--model' : ['warmslcrbm'],
     '--hidden1_width' : ['1701'],
-    '--bernoulli2_hidden1_width' : ['10', '50','100', '500', '1000'],
+    '--bernoulli2_hidden1_width' : ['10', '50', '100', '500', '1000'],
     '--steps' : ['100000'],
     '--batchsize' : ['500'],
     '--input_width': ['81'],
