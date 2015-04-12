@@ -8,12 +8,19 @@ import gzip
 import os
 
 
-def Convert(dirpath, mat_file,  dump_npy = False, out_file = 'rbm_mrf', model_file=None):
+def Convert(args, dirpath, mat_file,  dump_npy = False, out_file = 'rbm_mrf', model_file=None):
     """ Create the necesarry things"""
     matfile = sio.loadmat(mat_file)
 
-    # get the weight matrix
-    weight = np.asarray(matfile['L'].T, dtype='float32')
+    if args.minfill:
+        # get the weight matrix
+        weight = np.asarray(matfile['L'].T, dtype='float32')
+    else:
+        weight = np.asarray(matfile['minL'], dtype='float32')
+        Pmat = matfile['Pmat']
+        weight = weight.dot(Pmat)
+        weight = weight.T
+
     nFeats,_ = weight.shape
     diag = np.ones([nFeats, 1]) * matfile['min_eig'] * (1+matfile['alpha'])
     diag = np.asarray(diag, dtype='float32')
@@ -47,12 +54,13 @@ if __name__ == '__main__':
     parser.add_argument("--out_file", type=str)
     parser.add_argument("--dirpath", type=str)
     parser.add_argument("--npy", action='store_true')
+    parser.add_argument("--minfill", action='store_true')
 
     args = parser.parse_args()
     
     if args.npy:
-        Convert(args.dirpath, args.mat_file, dump_npy = True)
+        Convert(args, args.dirpath, args.mat_file, dump_npy = True)
     else:
-        Convert(args.dirpath, args.mat_file, dump_npy = False, out_file = args.out_file, model_file=args.model_file)
+        Convert(args, args.dirpath, args.mat_file, dump_npy = False, out_file = args.out_file, model_file=args.model_file)
 
 
