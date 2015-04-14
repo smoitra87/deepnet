@@ -14,12 +14,24 @@ def Convert(args, dirpath, mat_file,  dump_npy = False, out_file = 'rbm_mrf', mo
 
     if args.minfill:
         # get the weight matrix
-        weight = np.asarray(matfile['L'].T, dtype='float32')
-    else:
         weight = np.asarray(matfile['minL'], dtype='float32')
         Pmat = matfile['Pmat']
         weight = weight.dot(Pmat)
         weight = weight.T
+    elif args.random:
+        # get the weight matrix
+        weight = np.asarray(matfile['L'].T, dtype='float32')
+        weight[np.abs(weight)<1e-8] = 0.0
+        nnz = np.count_nonzero(weight)
+        nNodes = weight.shape[0]
+        weight = np.random.randn(nNodes**2, 1)
+        rangeIdx = np.arange(nNodes**2)
+        np.random.shuffle(rangeIdx)
+        weight[rangeIdx[nnz:]] = 0.
+        weight = weight.reshape(nNodes, nNodes)
+        print("nnz: {}".format(nnz))
+    else:
+        weight = np.asarray(matfile['L'].T, dtype='float32')
 
     nFeats,_ = weight.shape
     diag = np.ones([nFeats, 1]) * matfile['min_eig'] * (1+matfile['alpha'])
@@ -55,6 +67,7 @@ if __name__ == '__main__':
     parser.add_argument("--dirpath", type=str)
     parser.add_argument("--npy", action='store_true')
     parser.add_argument("--minfill", action='store_true')
+    parser.add_argument("--random", action='store_true')
 
     args = parser.parse_args()
     
