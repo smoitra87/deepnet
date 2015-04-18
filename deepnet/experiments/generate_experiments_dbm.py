@@ -17,17 +17,6 @@ def get_next_expid(dir="./"):
     ids = map(int,[re.findall('\d+',f)[0] for f in expfolders if re.findall('\d+',f)])
     return max(ids)+1 if ids else 1
 
-params = { 
-    '--base_epsilon' : ['0.1'],
-    '--l2_decay': ['0.01'],
-    '--model' : ['dbm'],
-    '--hidden1_width' : ['71'],
-    '--hidden2_width' : ['240'],
-    '--steps' : ['100000'],
-    '--batchsize' : ['500'],
-    '--input_width': ['81'],
-    '--data_dir': ['datasets/PF00595']
-}
 
 def write_expalloc(exp_to_args, name_to_exp):
     """ Write the expalloc.py file"""
@@ -42,21 +31,6 @@ name_to_exp = {1}
         """.format(str(exp_to_args),str(name_to_exp))
         fout.write(template)
 
-# Order params such that ones towards the end are sampled more
-param_list = []
-param_list.append(['--initial_momentum 0.5 --final_momentum 0.9'])
-param_list.append(['--model_dir experiments/{0}/dbm_models'+\
-        ' --rep_dir experiments/{0}/dbm_reps'])
-append_to_list("--l2_decay", param_list)
-append_to_list("--base_epsilon", param_list)
-append_to_list("--model", param_list)
-append_to_list("--hidden1_width", param_list)
-append_to_list("--hidden2_width", param_list)
-append_to_list("--steps", param_list)
-append_to_list("--batchsize", param_list)
-append_to_list("--input_width", param_list)
-append_to_list("--data_dir", param_list)
-
 #param_list.append(['--data_dir datasets/PF00240'])
 
 if __name__ == '__main__':
@@ -69,6 +43,7 @@ if __name__ == '__main__':
     parser.add_argument("--machine_end_idx", type=int, default = 10,  help="Max machine idx")
     parser.add_argument("--machine_prefix", type=str, default = 'deepnet',  help="Machine prefix")
     parser.add_argument("--start_exp_id", type=int, default = 1000,  help="First experiment id")
+    parser.add_argument("--pfamid", type=str, help="Pfamid to run")
     parse_args = parser.parse_args()   
 
     from collections import defaultdict
@@ -79,6 +54,42 @@ if __name__ == '__main__':
     machine_gen = cycle([parse_args.machine_prefix+str(idx) for idx in \
             range(parse_args.machine_start_idx, parse_args.machine_end_idx+1) ])
 
+    params = { 
+        '--base_epsilon' : ['0.1'],
+        '--l2_decay': ['0.01'],
+        '--model' : ['dbm'],
+        '--hidden1_width' : ['1000'],
+        '--hidden2_width' : ['500'],
+        '--steps' : ['100000'],
+        '--batchsize' : ['500'],
+        '--input_width': ['81'],
+        '--data_dir': ['datasets/PF00595']
+    }
+    
+    # Make some changes to params
+    if parse_args.pfamid:
+        pfamid = parse_args.pfamid
+        params['--data_dir'] = ['datasets/{}'.format(pfamid)]
+        import commands
+        cmd = "grep dimensions ../datasets/{}/data.pbtxt ".format(pfamid) +\
+                "| tr -d ' '| cut -d: -f2 | head -n1"
+        dimensions = commands.getstatusoutput(cmd)[1].strip()
+        params["--input_width"] = [dimensions]
+
+    # Order params such that ones towards the end are sampled more
+    param_list = []
+    param_list.append(['--initial_momentum 0.5 --final_momentum 0.9'])
+    param_list.append(['--model_dir experiments/{0}/dbm_models'+\
+            ' --rep_dir experiments/{0}/dbm_reps'])
+    append_to_list("--l2_decay", param_list)
+    append_to_list("--base_epsilon", param_list)
+    append_to_list("--model", param_list)
+    append_to_list("--hidden1_width", param_list)
+    append_to_list("--hidden2_width", param_list)
+    append_to_list("--steps", param_list)
+    append_to_list("--batchsize", param_list)
+    append_to_list("--input_width", param_list)
+    append_to_list("--data_dir", param_list)
 
     tuplist = list(product(*param_list))
 
