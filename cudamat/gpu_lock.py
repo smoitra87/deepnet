@@ -8,7 +8,7 @@ Iain Murray, November 2009, January 2010.
 
 import os
 import os.path
-
+import socket
 _dev_prefix = '/dev/nvidia'
 
 # Get ID's of NVIDIA boards. Should do this through a CUDA call, but this is
@@ -17,7 +17,13 @@ def board_ids():
     """Returns integer board ids available on this machine."""
     from glob import glob
     board_devs = glob(_dev_prefix + '[0-9]*')
-    return range(len(board_devs))
+    
+    hostname = socket.gethostname()
+    if hostname == 'langmead.pc.cs.cmu.edu':
+        return [3,1,2,0]
+        #return range(len(board_devs))
+    else:
+        return range(len(board_devs))
 
 def _lock_file(id):
     """lock file from integer id"""

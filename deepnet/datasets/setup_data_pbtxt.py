@@ -19,8 +19,8 @@ if __name__ == '__main__':
        for t in ('train','valid','test'):
            if t in data.name:
                X = np.load(os.path.join(pfamid,pfamid+"_"+t+".npy"))
-       data.size = X.shape[0]
-       data.dimensions[0] = X.shape[1]
-       data.file_pattern = os.path.abspath(os.path.join(pfamid, pfamid+"_"+t+".npy"))
+               data.size = X.shape[0]
+               data.dimensions[0] = X.shape[1]
+               data.file_pattern = os.path.abspath(os.path.join(pfamid, pfamid+"_"+t+".npy"))
 
     util.WritePbtxt(data_pbtxt_file, data_pbtxt)
