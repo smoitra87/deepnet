@@ -2292,6 +2292,34 @@ extern int get_softmax_correct(cudamat* mat, cudamat* labels, cudamat* target) {
     return 0;
 }
 
+extern int get_softmax_blosum90(cudamat* mat, cudamat* labels, cudamat* target) { 
+    unsigned int h = mat->size[0],
+                 w = mat->size[1];
+
+    if (!mat->on_device || !target->on_device)
+        return ERROR_NOT_ON_DEVICE;
+
+    if (mat->is_trans)
+        return ERROR_TRANSPOSED;
+
+    if (target->size[0] != 1 || target->size[1] != w)
+        return ERROR_INCOMPATIBLE_DIMENSIONS;
+    if (labels->size[0] != 1 || labels->size[1] != w)
+        return ERROR_INCOMPATIBLE_DIMENSIONS;
+    
+    int w1 = floor(sqrt(w));
+    int w2 = w / w1 + (w % w1 == 0 ? 0 : 1);
+    dim3 gridDim(w1, w2, 1);
+    kSoftMaxBlosum90<<<gridDim, 32>>>(mat->data_device, labels->data_device, target->data_device, w, h);
+
+    cudaThreadSynchronize();
+
+    if (checkCUDAError())
+        return CUDA_ERROR;
+
+    return 0;
+}
+
 extern int accumulate_columns(cudamat* mat, cudamat* indices, cudamat* target, float mult, int avg) { 
     unsigned int h = mat->size[0],
                  w = mat->size[1],

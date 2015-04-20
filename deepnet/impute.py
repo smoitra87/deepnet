@@ -386,6 +386,7 @@ if __name__ == '__main__':
     parser.add_argument("--mf-steps", type=int, default=1)
     parser.add_argument("--hidden-mf-steps", type=int, default=1)
     parser.add_argument("--outf", type=str, help='Output File')
+    parser.add_argument("--valid_only", action='store_true', help="only run the validation set")
     args = parser.parse_args()
 
     if not args.outf : 
@@ -411,13 +412,17 @@ if __name__ == '__main__':
 
     model.LoadModelOnGPU()
     model.SetUpData()
+    
+    if args.valid_only:
+        data_types = ['valid']
+    else:
+        data_types = ['train', 'valid', 'test']
 
     datagetters = {
             'train' : model.GetTrainBatch,
             'valid' : model.GetValidationBatch,
             'test' : model.GetTestBatch
             }
-
     batchsizes = {
             'train' : model.train_data_handler.num_batches,
             'valid' : model.validation_data_handler.num_batches,
@@ -432,7 +437,7 @@ if __name__ == '__main__':
     from collections import defaultdict    
     pll_data = defaultdict(list)
     imperr_data = defaultdict(list)
-    for data_type in ['train', 'valid', 'test']:
+    for data_type in data_types:
         num_batches = batchsizes[data_type]
         datagetter = datagetters[data_type]
         for batch_idx in range(num_batches):

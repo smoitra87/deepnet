@@ -20,7 +20,7 @@ def board_ids():
     
     hostname = socket.gethostname()
     if hostname == 'langmead.pc.cs.cmu.edu':
-        return [3,1,2,0]
+        return [3,2,1,0]
         #return range(len(board_devs))
     else:
         return range(len(board_devs))

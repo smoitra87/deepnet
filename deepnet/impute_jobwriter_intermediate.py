@@ -13,15 +13,14 @@ if __name__ == '__main__':
     parser.add_argument("--mf_steps", type=int, default=1)
     parser.add_argument("--infer_method", type=str, default="gaussian_exact", \
             help = "Inference method for imputation error")
+    parser.add_argument("--valid_only", action='store_true', help="only run the validation set")
     args = parser.parse_args()
 
+    valid_only_str = " --valid_only" if args.valid_only else ""
     if not args.model_prefix:
         raise ValueError('--model_prefix not specified')
         
-
     regex = '{}_\d+'.format(args.model_prefix)
-    
-
 
     jobf = args.outputf if args.outputf else "impute_run.sh"
     with open(jobf, 'w') as fout:
@@ -53,7 +52,8 @@ if __name__ == '__main__':
                  ' --train_file  experiments/{}/trainers/train_CD_rbm1.pbtxt '.format(expid) +\
                  " --mf-steps {}".format(args.mf_steps) +\
                  ' --outf experiments/likelihoods/{0}/{0}_{1}_pll.pkl --infer-method {2}'.format(\
-                 expid, model_file, args.infer_method)
+                 expid, model_file, args.infer_method) +\
+                 valid_only_str
                 print >>fout, cmd
                 print >>fout
                 print >>fout, "sleep 5"

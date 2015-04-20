@@ -13,8 +13,10 @@ if __name__ == '__main__':
     parser.add_argument("--mf_steps", type=int, default=1)
     parser.add_argument("--run_script_name", type=str,  help="Name of run script",\
             default="run_in_parallel.sh")
+    parser.add_argument("--valid_only", action='store_true', help="only run the validation set")
     args = parser.parse_args()
 
+    valid_only_str = " --valid_only" if args.valid_only else ""
     job_q = [[] for _ in range(args.nparallel)]
     for idx in range(args.start_expid, args.end_expid+1):
         job_q[idx % args.nparallel].append('exp%d'%(idx))
@@ -22,7 +24,8 @@ if __name__ == '__main__':
                 "exp{0} --outputf experiments/impute_run_exp{0}.sh".format(idx) +\
                 " --skip {} --infer_method {}".format(args.skip, args.infer_method) +\
                 " --mf_steps {}".format(args.mf_steps) +\
-                " --model_prefix {}".format(args.model_prefix))
+                " --model_prefix {}".format(args.model_prefix) +\
+                valid_only_str)
         os.system("chmod +x experiments/impute_run_exp{}.sh".format(idx))
 
     with open(args.run_script_name, 'w') as fout:

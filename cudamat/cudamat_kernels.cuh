@@ -120,6 +120,7 @@ __global__ void kSoftMax(float* mat, float* target, unsigned int width, unsigned
 __global__ void kSoftMaxOverwrite(float* mat, unsigned int width, unsigned int height);
 __global__ void kSoftMaxGrad(float* mat, float* labels, float* target, unsigned int width, unsigned int height);
 __global__ void kSoftMaxCorrect(float* mat, float* labels, float* target, unsigned int width, unsigned int height);
+__global__ void kSoftMaxBlosum90(float* mat, float* labels, float* target, unsigned int width, unsigned int height);
 __global__ void kSoftMaxCrossEntropy(float* mat, float* labels, float* target, unsigned int width, unsigned int height, float tiny);
 __global__ void kExpandAndAdd(float* source, float* mat, float* indices, float* target, int width, int height, float mult, int width2);
 __global__ void kExpand(float* source, float* indices, float* target, int height, int width, int target_width);

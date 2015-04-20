@@ -1298,6 +1298,22 @@ class CUDAMatrix(object):
 
         return target
 
+    def get_softmax_blosum90(self, labels, target):
+        """
+        target[i] = blosum90[i, labels[i]]
+        """
+        assert labels.shape == (1, self.shape[1])
+        assert target.shape == labels.shape
+        if isinstance(labels, CUDAMatrix):
+            err_code = _cudamat.get_softmax_blosum90(self.p_mat, labels.p_mat, target.p_mat)
+        else:
+            raise ValueError, "labels must be of type CUDAMatrix."
+
+        if err_code:
+            raise generate_exception(err_code)
+
+        return target
+
     def get_softmax_cross_entropy(self, labels, target, tiny=1e-10):
         """
         target[i] = -log(self[label[i]] + tiny).

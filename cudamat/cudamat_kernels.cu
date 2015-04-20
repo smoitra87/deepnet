@@ -865,6 +865,60 @@ __global__ void kSoftMaxCorrect(float* mat, float* labels, float* target, unsign
 }
 
 
+__global__ void kSoftMaxBlosum90(float* mat, float* labels, float* target, unsigned int width, unsigned int height) {
+
+  int blosum90[21][21] = {{5, -1, -2, -2, -1, -3, -4, -2, 0, 1, 0, -1, -3, -2, -1, -3, -1, -1, -2, -2, -6},
+    {-1, 5, 0, 3, -3, -2, -3, 0, -5, -2, -1, -2, -3, -4, -3, -5, -3, -3, -3, -4, -6},
+    {-2, 0, 5, 1, -4, 0, -3, 2, -5, -3, -2, -2, -2, -4, -3, -5, -4, -3, -3, -4, -6},
+    {-2, 3, 1, 5, -4, -1, -4, 1, -5, -3, -1, -2, -2, -4, -4, -5, -4, -4, -4, -4, -6},
+    {-1, -3, -4, -4, 8, -4, -5, -3, -3, -2, -2, -4, -4, -3, -2, -3, -2, -2, -3, -3, -6},
+    {-3, -2, 0, -1, -4, 7, 0, -1, -5, -3, -3, -3, 3, -4, -4, -5, -5, -4, -4, -2, -6},
+    {-4, -3, -3, -4, -5, 0, 11, -2, -4, -4, -4, -4, 2, -5, -3, -6, -5, -5, -4, -3, -6},
+    {-2, 0, 2, 1, -3, -1, -2, 7, -4, -2, -1, -2, -2, -3, 0, -4, -3, -2, -2, -3, -6},
+    {0, -5, -5, -5, -3, -5, -4, -4, 6, -1, -3, -4, -5, -1, -3, -2, -3, -2, -3, -3, -6},
+    {1, -2, -3, -3, -2, -3, -4, -2, -1, 5, 1, -2, -3, 0, -1, -1, -1, -1, -1, -2, -6},
+    {0, -1, -2, -1, -2, -3, -4, -1, -3, 1, 6, -2, -2, 0, -1, -2, -1, -1, -2, -2, -6},
+    {-1, -2, -2, -2, -4, -3, -4, -2, -4, -2, -2, 9, -4, -4, -4, -5, -6, -4, -5, -5, -6},
+    {-3, -3, -2, -2, -4, 3, 2, -2, -5, -3, -2, -4, 8, -3, -3, -4, -4, -3, -3, 1, -6},
+    {-2, -4, -4, -4, -3, -4, -5, -3, -1, 0, 0, -4, -3, 7, 0, 1, -1, 0, -1, 0, -6},
+    {-1, -3, -3, -4, -2, -4, -3, 0, -3, -1, -1, -4, -3, 0, 7, -1, 2, 1, 1, 1, -6},
+    {-3, -5, -5, -5, -3, -5, -6, -4, -2, -1, -2, -5, -4, 1, -1, 7, 1, -1, -3, -2, -6},
+    {-1, -3, -4, -4, -2, -5, -5, -3, -3, -1, -1, -6, -4, -1, 2, 1, 6, 0, -1, -1, -6},
+    {-1, -3, -3, -4, -2, -4, -5, -2, -2, -1, -1, -4, -3, 0, 1, -1, 0, 6, 2, -1, -6},
+    {-2, -3, -3, -4, -3, -4, -4, -2, -3, -1, -2, -5, -3, -1, 1, -3, -1, 2, 6, 0, -6},
+    {-2, -4, -4, -4, -3, -2, -3, -3, -3, -2, -2, -5, 1, 0, 1, -2, -1, -1, 0, 8, -6},
+    {-6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, 1}};
+
+  __shared__ float max_vals[32];
+  __shared__ unsigned int max_val_args[32];
+  float cur_max = -FLT_MAX;
+  unsigned int cur_argmax = 0;
+  float val = 0;
+  const int column = gridDim.x * blockIdx.y + blockIdx.x;
+  if (column < width) {
+    float *cur_data = &mat[column * height] ; 
+    for (unsigned int i = threadIdx.x; i < height; i += blockDim.x) {
+      val = cur_data[i];
+      if (val > cur_max) {
+        cur_max = val;
+        cur_argmax = i;
+      }
+    }
+    max_vals[threadIdx.x] = cur_max;
+    max_val_args[threadIdx.x] = cur_argmax;
+    __syncthreads();
+    if (threadIdx.x == 0) {
+      cur_max = -FLT_MAX;
+      cur_argmax = 0;
+      for (unsigned int i = 0; i < blockDim.x; i++)
+        if (max_vals[i] > cur_max) {
+          cur_max = max_vals[i];
+          cur_argmax = max_val_args[i];
+        }   
+      target[column] = blosum90[cur_argmax][(int)labels[column]];
+    }
+  }
+}
 __global__ void kSoftMax(float* mat, float* target, unsigned int width, unsigned int height) {
   extern __shared__ float max_vals[] ;
   float cur_max = -FLT_MAX;
