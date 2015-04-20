@@ -1,0 +1,28 @@
+name: "PF13920"
+data {
+  name: "train_data"
+  file_pattern: "/storage/data1/dbm/deepnet/deepnet/datasets/PF13920/PF13920_train.npy"
+  size: 9352
+  dimensions: 50
+  num_labels: 21
+  sparse: true
+}
+data {
+  name: "validation_data"
+  file_pattern: "/storage/data1/dbm/deepnet/deepnet/datasets/PF13920/PF13920_valid.npy"
+  size: 3117
+  dimensions: 50
+  num_labels: 21
+  sparse: true
+}
+data {
+  name: "test_data"
+  file_pattern: "/storage/data1/dbm/deepnet/deepnet/datasets/PF13920/PF13920_test.npy"
+  size: 3119
+  dimensions: 50
+  num_labels: 21
+  sparse: true
+}
+gpu_memory: "3G"
+main_memory: "30G"
+prefix: "/storage/data1/dbm/deepnet/deepnet/datasets/PF13920"
