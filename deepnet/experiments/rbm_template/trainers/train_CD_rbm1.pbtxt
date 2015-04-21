@@ -1,4 +1,4 @@
-optimizer: CD
+optimizer: PCD
 stopcondition {
   all_processed: false
   steps: 10000
