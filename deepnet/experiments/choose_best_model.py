@@ -9,6 +9,7 @@ if __name__ == '__main__':
     parser.add_argument("--model_dir", type=str, help="Location models")
     parser.add_argument("--output_dir", type=str, help="Location Output")
     parser.add_argument("--globstr", type=str, help="Location Output")
+    parser.add_argument("--print_only", action='store_true', help="Don't copy best model")
     args = parser.parse_args()
 
     if args.globstr:
@@ -35,10 +36,13 @@ if __name__ == '__main__':
     model_prefix = "_".join(os.path.basename(min_f).split('_')[1:2])
     
     from_f = os.path.join(args.model_dir,model_name)
-    to_f = os.path.join(args.output_dir, model_prefix+'_imperr_BEST')
 
-    print("cp {0} {1}".format(from_f, to_f))
-    os.system("cp {0} {1}".format(from_f, to_f))
+    if args.print_only:
+        print from_f
+    else:
+        to_f = os.path.join(args.output_dir, model_prefix+'_imperr_BEST')
+        print("cp {0} {1}".format(from_f, to_f))
+        os.system("cp {0} {1}".format(from_f, to_f))
     
 
 

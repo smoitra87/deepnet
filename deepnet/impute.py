@@ -262,7 +262,7 @@ def impute_rbm_exact(model):
 
     return pll_cpu, imperr_cpu
 
-def impute_mf(model, mf_steps, hidden_mf_steps):
+def impute_mf(model, mf_steps, hidden_mf_steps, **opts):
     # Initialize stuff
     batchsize = model.batchsize
     input_layer = model.GetLayerByName('input_layer') 
@@ -348,14 +348,23 @@ def impute_mf(model, mf_steps, hidden_mf_steps):
         pll.add_sums(input_layer.barslice, axis=0)
         
         # Calculate imputation error
-        reshape_softmax(enter=True)
-        input_layer.state.get_softmax_correct(data, target=input_layer.batchsize_temp)
-        reshape_softmax(enter=False)
+        if 'blosum90' in opts:
+            reshape_softmax(enter=True)
+            input_layer.state.get_softmax_blosum90(data, target=input_layer.batchsize_temp)
+            reshape_softmax(enter=False)
 
-        input_layer.batchsize_temp.get_row_slice(dim_idx, dim_idx + 1 , \
-                target=input_layer.barslice)
-        imputation_err.add_sums(input_layer.barslice, axis=0, mult=-1.)
-        imputation_err.add(1.)
+            input_layer.batchsize_temp.get_row_slice(dim_idx, dim_idx + 1 , \
+                    target=input_layer.barslice)
+            imputation_err.add_sums(input_layer.barslice, axis=0)
+        else:
+            reshape_softmax(enter=True)
+            input_layer.state.get_softmax_correct(data, target=input_layer.batchsize_temp)
+            reshape_softmax(enter=False)
+
+            input_layer.batchsize_temp.get_row_slice(dim_idx, dim_idx + 1 , \
+                    target=input_layer.barslice)
+            imputation_err.add_sums(input_layer.barslice, axis=0, mult=-1.)
+            imputation_err.add(1.)
 
     #--------------------------------------
     # free device memory for newly created arrays
@@ -387,6 +396,7 @@ if __name__ == '__main__':
     parser.add_argument("--hidden-mf-steps", type=int, default=1)
     parser.add_argument("--outf", type=str, help='Output File')
     parser.add_argument("--valid_only", action='store_true', help="only run the validation set")
+    parser.add_argument("--blosum90", action='store_true', help="Calculate blosum90 scores")
     args = parser.parse_args()
 
     if not args.outf : 
@@ -445,7 +455,10 @@ if __name__ == '__main__':
             datagetter()
 
             if args.infer_method == 'mf':
-                pll, imperr = impute_mf(model, args.mf_steps, args.hidden_mf_steps)
+                if args.blosum90:
+                    pll, imperr = impute_mf(model, args.mf_steps, args.hidden_mf_steps, blosum90=True)
+                else:
+                    pll, imperr = impute_mf(model, args.mf_steps, args.hidden_mf_steps)
             elif args.infer_method == 'exact':
                 pll, imperr = impute_rbm_exact(model)
             elif args.infer_method == 'gaussian_exact':
