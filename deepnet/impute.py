@@ -12,6 +12,7 @@ import itertools
 import matplotlib.pyplot as plt
 from deepnet import visualize
 import deepnet
+import scipy.io as sio
 
 
 def LogMeanExp(x):
@@ -380,6 +381,125 @@ def impute_mf(model, mf_steps, hidden_mf_steps, **opts):
 
     return pll_cpu, imperr_cpu
 
+def multicol_mf(model, multicols, **opts):
+    # Initialize stuff
+    batchsize = model.batchsize
+    input_layer = model.GetLayerByName('input_layer') 
+
+    hidden_layers = []
+    for layer in model.layer:
+        if not layer.is_input:
+            hidden_layers.append(layer)
+
+    dimensions = input_layer.dimensions 
+    numlabels = input_layer.numlabels 
+    data = input_layer.data
+
+    # set up temp data structures
+    for layer in model.layer:
+        layer.foo = layer.statesize
+
+    input_layer.fooslice = cm.CUDAMatrix(np.zeros([input_layer.numlabels,\
+            batchsize]))
+    input_layer.barslice = cm.CUDAMatrix(np.zeros([1, batchsize]))
+    pll = cm.CUDAMatrix(np.zeros([1, batchsize]))
+    imputation_err = cm.CUDAMatrix(np.zeros([1, batchsize]))
+    
+    input_layer.biasslice = cm.CUDAMatrix(np.zeros([input_layer.numlabels,\
+            batchsize]))
+    input_layer.biasslice.apply_softmax()
+
+    # Get the multicol dimensions
+    nBlocks, nCols = multicols.shape
+
+    # INITIALIZE TO UNIFORM RANDOM for all layers except clamped layers
+    for layer in model.layer:
+        layer.state.assign(0)
+        layer.ApplyActivation()
+
+    def reshape_softmax(enter=True):
+        if enter:
+            input_layer.state.reshape((numlabels, dimensions * batchsize))    
+            input_layer.foo.reshape((numlabels, dimensions * batchsize))
+            data.reshape((1, dimensions * batchsize))
+            input_layer.batchsize_temp.reshape((1, dimensions * batchsize))
+        else:
+            input_layer.state.reshape((numlabels * dimensions, batchsize))
+            input_layer.foo.reshape((numlabels * dimensions, batchsize))
+            data.reshape((dimensions, batchsize))
+            input_layer.batchsize_temp.reshape((dimensions, batchsize))
+
+
+    # RUN Imputation Error
+    for mult_idx in range(nBlocks):
+        #-------------------------------------------
+        # Set state of input variables
+        input_layer.GetData()
+        for col_idx in range(nCols):
+            dim_idx = multicols[mult_idx, col_idx]
+            offset = dim_idx * numlabels
+            input_layer.state.set_row_slice(offset, offset + numlabels, \
+                    input_layer.biasslice)
+
+        for layer in model.layer:
+            if not layer.is_input:
+                layer.state.assign(0)
+
+        for layer in hidden_layers:
+            model.ComputeUp(layer, train=False, compute_input=False, step=0,
+                        maxsteps=0, use_samples=False, neg_phase=False)
+        model.ComputeUp(input_layer, train=False, compute_input=True, step=0,
+                    maxsteps=0, use_samples=False, neg_phase=False)
+
+        # Calculate pll
+        reshape_softmax(enter=True)
+        input_layer.state.get_softmax_cross_entropy(data,\
+                target=input_layer.batchsize_temp, tiny=input_layer.tiny)
+        reshape_softmax(enter=False)
+
+        for col_idx in range(nCols):
+            dim_idx = multicols[mult_idx, col_idx]
+            input_layer.batchsize_temp.get_row_slice(dim_idx, dim_idx + 1 , \
+                    target=input_layer.barslice)
+            pll.add_sums(input_layer.barslice, axis=0)
+        
+        # Calculate imputation error
+        if 'blosum90' in opts:
+            reshape_softmax(enter=True)
+            input_layer.state.get_softmax_blosum90(data, target=input_layer.batchsize_temp)
+            reshape_softmax(enter=False)
+
+            for col_idx in range(nCols):
+                dim_idx = multicols[mult_idx, col_idx]
+                input_layer.batchsize_temp.get_row_slice(dim_idx, dim_idx + 1 , \
+                        target=input_layer.barslice)
+                imputation_err.add_sums(input_layer.barslice, axis=0)
+        else:
+            reshape_softmax(enter=True)
+            input_layer.state.get_softmax_correct(data, target=input_layer.batchsize_temp)
+            reshape_softmax(enter=False)
+
+            for col_idx in range(nCols):
+                dim_idx = multicols[mult_idx, col_idx]
+                input_layer.batchsize_temp.get_row_slice(dim_idx, dim_idx + 1 , \
+                        target=input_layer.barslice)
+                imputation_err.add_sums(input_layer.barslice, axis=0, mult=-1.)
+                imputation_err.add(1.)
+
+    #--------------------------------------
+    # free device memory for newly created arrays
+    pll_cpu = -pll.asarray()
+    imperr_cpu = imputation_err.asarray()
+    imperr_cpu /= (nBlocks * nCols +0.)
+
+    input_layer.fooslice.free_device_memory()
+    input_layer.biasslice.free_device_memory()
+    input_layer.barslice.free_device_memory()
+    pll.free_device_memory()
+    imputation_err.free_device_memory()
+
+    return pll_cpu, imperr_cpu
+
 
 def Usage():
     print '%s <model file> <number of Markov chains to run> [number of words (for Replicated Softmax models)]'
@@ -397,6 +517,7 @@ if __name__ == '__main__':
     parser.add_argument("--outf", type=str, help='Output File')
     parser.add_argument("--valid_only", action='store_true', help="only run the validation set")
     parser.add_argument("--blosum90", action='store_true', help="Calculate blosum90 scores")
+    parser.add_argument("--multicol_file", type=str, help="File to read multicol job")
     args = parser.parse_args()
 
     if not args.outf : 
@@ -439,6 +560,8 @@ if __name__ == '__main__':
             'test' : model.test_data_handler.num_batches
             }
 
+    opts = {}
+
     cm.CUDAMatrix.init_random(seed=int(time.time()))
 
     if len(model.layer) > 2 and args.infer_method=='exact':
@@ -459,6 +582,14 @@ if __name__ == '__main__':
                     pll, imperr = impute_mf(model, args.mf_steps, args.hidden_mf_steps, blosum90=True)
                 else:
                     pll, imperr = impute_mf(model, args.mf_steps, args.hidden_mf_steps)
+            elif args.infer_method == 'multicol':
+                multicols = sio.loadmat(args.multicol_file)['multicols']
+                multicols = np.asarray(multicols, dtype=np.int)
+                multicols = multicols - 1; # convert from matlab indexing
+                if args.blosum90:
+                    pll, imperr = multicol_mf(model, multicols, blosum90=True)
+                else:
+                    pll, imperr = multicol_mf(model, multicols)
             elif args.infer_method == 'exact':
                 pll, imperr = impute_rbm_exact(model)
             elif args.infer_method == 'gaussian_exact':

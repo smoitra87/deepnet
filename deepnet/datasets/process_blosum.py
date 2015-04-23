@@ -8,8 +8,14 @@ if __name__ == '__main__':
     parser.add_argument("--blosum_dat", type=str)
     parser.add_argument("--format", type=str, help="c/matlab")
     args = parser.parse_args()
-    
-    AALIST= [aa for aa in "AVLIPFWMGSTCYNQDEKRH-"]
+   
+    if args.format == 'c':
+        AALIST= [aa for aa in "AVLIPFWMGSTCYNQDEKRH-"]
+    elif args.format == 'matlab':
+        AALIST= [aa for aa in "ARNDCQEGHILKMFPSTWYV-"]
+    else: 
+        raise ValueError('Unknown Value')
+
     aa_dict = dict((aa,idx) for (idx,aa) in enumerate(AALIST))
     aa_dict["X"] = len(AALIST) - 1
 
@@ -30,6 +36,11 @@ if __name__ == '__main__':
     if args.format == 'c':
         for row in mat:
             print "{" + ", ".join(map(str, list(row))) + "},"
+    elif args.format == 'matlab':
+        for row in mat:
+            print "[" + ", ".join(map(str, list(row))) + "],"
+    else: 
+        raise ValueError('Unknown Value')
 
 
     
