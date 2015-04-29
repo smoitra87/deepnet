@@ -6,6 +6,7 @@ from operator import mul
 from fractions import Fraction
 import itertools
 import scipy.io as sio
+import pickle
 
 def nCk(n,k):
     return int( reduce(mul, (Fraction(n-i,i+1) for i in range(k)), 1))
@@ -27,7 +28,7 @@ if __name__ == '__main__':
     if args.mode == 'rand':
         for nCol in args.nCols:
             if args.nBlocks > nCk(nRes, nCol):
-                multicols = itertools.combinations(range(1,nRes+1),nCol)
+                multicols = list(itertools.combinations(range(1,nRes+1),nCol))
             else:
                 multicols = [sorted(random.sample(range(1,nRes+1), nCol)) for _ in xrange(args.nBlocks)]
             outf = outf_str.format(args.pfamid,args.mode,nCol)
@@ -38,6 +39,35 @@ if __name__ == '__main__':
             if len(multicols) > args.nBlocks:
                 multicols = random.sample(multicols, args.nBlocks)
             outf = outf_str.format(args.pfamid,args.mode,nCol)
+            sio.savemat(outf, {'multicols': np.asarray(multicols)})
+    elif args.mode == 'core' or args.mode == 'surface':
+        with open(os.path.join(args.pfamid, "functional.pkl"),'rb') as fin:
+            functional = pickle.load(fin)
+
+        res = functional['msa-{}'.format(args.mode)]
+        nRes = len(res)
+        for nCol in args.nCols:
+            if args.nBlocks > nCk(nRes, nCol):
+                multicols = list(itertools.combinations(res, nCol))
+            else:
+                multicols = [sorted(random.sample(res, nCol)) for _ in xrange(args.nBlocks)]
+            outf = outf_str.format(args.pfamid,args.mode,nCol)
+            print outf, multicols
+            sio.savemat(outf, {'multicols': np.asarray(multicols)})
+    elif args.mode == 'bound':
+        with open(os.path.join(args.pfamid, "functional.pkl"),'rb') as fin:
+            functional = pickle.load(fin)
+
+        res = functional['msa-interface'] + functional['msa-ligands']
+        res = sorted(list(set(res)))
+        nRes = len(res)
+        for nCol in args.nCols:
+            if args.nBlocks > nCk(nRes, nCol):
+                multicols = list(itertools.combinations(res, nCol))
+            else:
+                multicols = [sorted(random.sample(res, nCol)) for _ in xrange(args.nBlocks)]
+            outf = outf_str.format(args.pfamid,args.mode,nCol)
+            print outf, multicols
             sio.savemat(outf, {'multicols': np.asarray(multicols)})
     else:
         raise ValueError('Unknown mode')
