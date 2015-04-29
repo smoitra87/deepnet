@@ -60,8 +60,8 @@ if __name__ == '__main__':
         '--model' : ['rbm'],
         '--hidden1_width' : ['100','1000'],
         '--bernoulli2_hidden1_width' : ['10'],
-        '--steps' : ['100000'],
-        '--batchsize' : ['500'],
+        '--steps' : ['150000'],
+        '--batchsize' : ['3000'],
         '--input_width': ['50'],
         '--data_dir': ['datasets/PF11427']
     }

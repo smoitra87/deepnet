@@ -13,6 +13,8 @@ if __name__ == '__main__':
             help="gaussian_exact/mf", default='mf')
     parser.add_argument("--blosum90", action='store_true', help="Calculate blosum90 scores")
     parser.add_argument("--valid_only", action='store_true', help="Calculate blosum90 scores")
+    parser.add_argument("--ncols", type=int, nargs='+', help="Num cols")
+    parser.add_argument("--multmode", type=str, help="Multicol mode",default='rand')
     args = parser.parse_args()
 
     job_q = [[] for _ in range(args.nparallel)]
@@ -37,6 +39,10 @@ if __name__ == '__main__':
     if args.valid_only:
         cmd += ' --valid_only'
 
+    if args.infer_method == 'multicol':
+        cmd += ' --ncols {4}'
+        cmd += ' --multmode {5}'
+
     with open(args.run_script_name,'w') as fout:
         print >>fout, "#!/bin/sh"
         for qidx in range(args.nparallel):
@@ -44,13 +50,22 @@ if __name__ == '__main__':
             jobs = []
             for expid in job_q[qidx]:
                 trainer = 'train_CD_rbm1.pbtxt' if 'rbm1' in best_dict[expid] else 'train_CD_joint.pbtxt'
-                if args.blosum90:
-                    pll_f = '{0}_{1}_blosum90.pkl'.format(expid, os.path.split(best_dict[expid])[1])
+                if args.infer_method == 'multicol':
+                    for ncol in args.ncols : 
+                        if args.blosum90:
+                            pll_f = '{0}_{1}_{2}{3}multbl90.pkl'.format(expid, os.path.split(best_dict[expid])[1], args.multmode, ncol)
+                        else:
+                            pll_f = '{0}_{1}_{2}{3}multimp.pkl'.format(expid, os.path.split(best_dict[expid])[1], args.multmode, ncol)
+                        cmd2 = cmd.format(best_dict[expid], expid, trainer, pll_f, ncol, args.multmode)
+                        jobs.append(cmd2)
                 else:
-                    pll_f = '{0}_{1}_pll.pkl'.format(expid, os.path.split(best_dict[expid])[1])
+                    if args.blosum90:
+                        pll_f = '{0}_{1}_blosum90.pkl'.format(expid, os.path.split(best_dict[expid])[1])
+                    else:
+                        pll_f = '{0}_{1}_pll.pkl'.format(expid, os.path.split(best_dict[expid])[1])
 
-                cmd2 = cmd.format(best_dict[expid], expid, trainer, pll_f)
-                jobs.append(cmd2)
+                    cmd2 = cmd.format(best_dict[expid], expid, trainer, pll_f)
+                    jobs.append(cmd2)
 
             print >>fout, "( " + " ; sleep 2 ; ".join(jobs) + " ) & ";
    

@@ -517,7 +517,8 @@ if __name__ == '__main__':
     parser.add_argument("--outf", type=str, help='Output File')
     parser.add_argument("--valid_only", action='store_true', help="only run the validation set")
     parser.add_argument("--blosum90", action='store_true', help="Calculate blosum90 scores")
-    parser.add_argument("--multicol_file", type=str, help="File to read multicol job")
+    parser.add_argument("--ncols", type=int, help="Number of multiple columns")
+    parser.add_argument("--multmode", type=str, help="Multicol mode",default='rand')
     args = parser.parse_args()
 
     if not args.outf : 
@@ -530,6 +531,9 @@ if __name__ == '__main__':
     model_file = args.model_file
     train_file = args.train_file
     model = dbm.DBM(model_file, train_file)
+
+    trainer_pb = util.ReadOperation(train_file)
+    dataset = os.path.basename(trainer_pb.data_proto_prefix)
 
     # Fix paths
     dirname = os.path.split(model.t_op.data_proto_prefix)[1]
@@ -583,7 +587,9 @@ if __name__ == '__main__':
                 else:
                     pll, imperr = impute_mf(model, args.mf_steps, args.hidden_mf_steps)
             elif args.infer_method == 'multicol':
-                multicols = sio.loadmat(args.multicol_file)['multicols']
+                ncols = args.ncols;
+                multicol_file = 'datasets/{0}/multicol/{1}_{2}.mat'.format(dataset,args.multmode, ncols)
+                multicols = sio.loadmat(multicol_file)['multicols']
                 multicols = np.asarray(multicols, dtype=np.int)
                 multicols = multicols - 1; # convert from matlab indexing
                 if args.blosum90:

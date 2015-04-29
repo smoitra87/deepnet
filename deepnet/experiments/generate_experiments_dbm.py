@@ -58,12 +58,12 @@ if __name__ == '__main__':
         '--base_epsilon' : ['0.1'],
         '--l2_decay': ['0.01'],
         '--model' : ['dbm'],
-        '--hidden1_width' : ['1000'],
-        '--hidden2_width' : ['500'],
+        '--hidden1_width' : ['100'],
+        '--hidden2_width' : ['100'],
         '--steps' : ['100000'],
-        '--batchsize' : ['500'],
+        '--batchsize' : ['3000'],
         '--input_width': ['81'],
-        '--data_dir': ['datasets/PF00595']
+        '--data_dir': ['datasets/PF11427']
     }
     
     # Make some changes to params
