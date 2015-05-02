@@ -58,12 +58,12 @@ if __name__ == '__main__':
         '--base_epsilon' : ['0.1'],
         '--l2_decay': ['0.01'],
         '--model' : ['rbm'],
-        '--hidden1_width' : ['100','1000'],
+        '--hidden1_width' : ['1000'],
         '--bernoulli2_hidden1_width' : ['10'],
-        '--steps' : ['150000'],
-        '--batchsize' : ['3000'],
+        '--steps' : ['100000'],
+        '--batchsize' : ['500'],
         '--input_width': ['50'],
-        '--data_dir': ['datasets/PF11427']
+        '--data_dir': ['datasets/PF00240']
     }
     
     # Make some changes to params
