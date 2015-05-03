@@ -30,6 +30,19 @@ def Convert(args, dirpath, mat_file,  dump_npy = False, out_file = 'rbm_mrf', mo
         weight[rangeIdx[nnz:]] = 0.
         weight = weight.reshape(nNodes, nNodes)
         print("nnz: {}".format(nnz))
+    elif args.thresh:
+        # get both the weight materices
+        if not -0.00001 < args.thresh < 100.000001:
+            raise ValueError("Threshold should be b/w 0 and 1")
+
+        weight = np.asarray(matfile['L'].T, dtype='float32')
+        weight_minfill = np.asarray(matfile['minL'], dtype='float32')
+        nnz = np.sum(np.abs(weight) > 1e-10)
+        nnz_minfill = np.sum(np.abs(weight_minfill) > 1e-10)
+        num_to_delete = int((nnz - nnz_minfill) * args.thresh / 100.)
+        weight_nnz = np.abs(weight[np.abs(weight)>1e-10])
+        threshold = np.sort(weight_nnz)[num_to_delete]
+        weight[np.abs(weight) < threshold] = 0.0
     else:
         weight = np.asarray(matfile['L'].T, dtype='float32')
 
@@ -38,7 +51,10 @@ def Convert(args, dirpath, mat_file,  dump_npy = False, out_file = 'rbm_mrf', mo
     diag = np.asarray(diag, dtype='float32')
     
     if dump_npy : 
-        edge_file = os.path.join(dirpath, 'edge_input_to_gaussian.npy')
+        if args.edge_input_file:
+            edge_file = os.path.join(dirpath, args.edge_input_file)
+        else:
+            edge_file = os.path.join(dirpath, 'edge_input_to_gaussian.npy')
         diag_file = os.path.join(dirpath, 'diag_gaussian.npy')
         np.save(edge_file, weight)
         np.save(diag_file, diag)
@@ -64,10 +80,12 @@ if __name__ == '__main__':
     parser.add_argument("--model_file", type=str)
     parser.add_argument("--mat_file", type=str)
     parser.add_argument("--out_file", type=str)
+    parser.add_argument("--edge_input_file", type=str)
     parser.add_argument("--dirpath", type=str)
     parser.add_argument("--npy", action='store_true')
     parser.add_argument("--minfill", action='store_true')
     parser.add_argument("--random", action='store_true')
+    parser.add_argument("--thresh", type=float, help="Threshold L")
 
     args = parser.parse_args()
     
